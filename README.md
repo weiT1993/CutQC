@@ -20,8 +20,8 @@ conda install gurobi
 ```
 pip install .
 ```
-4. Install [Intel oneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html). - Add the following to `.bashrc` or `.bash_profile`:
-(file location may vary depending on installation)
+4. Install [Intel oneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html).
+Add MKL to path (file location may vary depending on installation):
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/mkl/lib/intel64
 ```
