@@ -1,5 +1,5 @@
 # CutQC
-CutQC is the backend codes for the [paper](https://dl.acm.org/doi/10.1145/3445814.3446758).
+CutQC is the backend codes for the paper [CutQC: using small quantum computers for large quantum circuit evaluations](https://dl.acm.org/doi/10.1145/3445814.3446758).
 CutQC cuts a large quantum circuits into smaller subcircuits and run on small quantum computers.
 By combining classical and quantum computation, CutQC significantly expands the computational reach beyond either platform alone.
 
@@ -25,6 +25,8 @@ pip install .
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/mkl/lib/intel64
 ```
+Note that the installations have only been tested on Linux.
+Windows/MacOS may require different setups and support is currently not provided.
 
 ## Example Code
 For example, use CutQC to cut a 3*5 Supremacy circuit and run on a 10-qubit quantum computer
@@ -39,3 +41,7 @@ Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi
 
 ## Questions
 Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
+
+## Coming soon
+Standard multi-node classical post-processing tools to be used on HPC clusters.
+The original implementation in the paper does not port easily to other HPC platforms.
