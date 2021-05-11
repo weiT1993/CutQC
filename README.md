@@ -1,5 +1,7 @@
 # CutQC
-A Python package for [CutQC](https://dl.acm.org/doi/10.1145/3445814.3446758)
+CutQC is the backend codes for the [paper](https://dl.acm.org/doi/10.1145/3445814.3446758).
+CutQC cuts a large quantum circuits into smaller subcircuits and run on small quantum computers.
+By combining classical and quantum computation, CutQC significantly expands the computational reach beyond either platform alone.
 
 ## Installation
 1. Make a Python virtual environment and install required packages:
@@ -23,3 +25,17 @@ pip install .
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/mkl/lib/intel64
 ```
+
+## Example Code
+For example, use CutQC to cut a 3*5 Supremacy circuit and run on a 10-qubit quantum computer
+```
+python test.py
+```
+
+## Citing CutQC
+If you use CutQC in your work, we would appreciate it if you cite our paper:
+
+Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi. "CutQC: using small quantum computers for large quantum circuit evaluations." In Proceedings of the 26th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, pp. 473-486. 2021.
+
+## Questions
+Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
