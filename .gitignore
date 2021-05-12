@@ -1,0 +1,12 @@
+__pycache__
+.vscode
+.ipynb_checkpoints
+gurobi.log
+*.DS_Store*
+*.pckl
+*.pyc
+._*
+*.pyc
+
+*.txt
+!*_logs.txt
