@@ -35,12 +35,7 @@ def find_init_meas(combination, O_rho_pairs, subcircuits):
         meas = all_init_meas[subcircuit_idx][1]
         meas_combinations = []
         for x in meas:
-            if x == 'comp':
-                meas_combinations.append(['comp'])
-            elif x=='I' or x == 'X' or x == 'Y' or x=='Z':
-                meas_combinations.append(['+%s'%x])
-            else:
-                raise Exception('Illegal measurement symbol :',x)
+            meas_combinations.append(['%s'%x])
         meas_combinations = list(itertools.product(*meas_combinations))
         subcircuit_init_meas = []
         for init in init_combinations:
@@ -84,13 +79,13 @@ def generate_summation_terms(full_circuit, subcircuits, complete_path_map, subci
     O_rho_pairs, combinations = get_combinations(complete_path_map=complete_path_map)
     smart_order = sorted(range(len(subcircuits)),key=lambda subcircuit_idx:counter[subcircuit_idx]['effective'])
     for i, combination in enumerate(combinations):
-        # print('%d/%d combinations:'%(i+1,len(combinations)),combination)
+        print('%d/%d combinations:'%(i+1,len(combinations)),combination)
         summation_term = []
         all_init_meas = find_init_meas(combination, O_rho_pairs, subcircuits)
         for subcircuit_idx in smart_order:
             kronecker_term = ()
             for init_meas in all_init_meas[subcircuit_idx]:
-                # print('Subcircuit_%d init_meas ='%subcircuit_idx,init_meas)
+                print('Subcircuit_%d init_meas ='%subcircuit_idx,init_meas)
                 coefficient = 1
                 init = list(init_meas[0])
                 for idx, x in enumerate(init):
@@ -115,19 +110,6 @@ def generate_summation_terms(full_circuit, subcircuits, complete_path_map, subci
                     else:
                         raise Exception('Illegal initilization symbol :',x)
                 meas = list(init_meas[1])
-                for idx, x in enumerate(meas):
-                    if x == 'comp':
-                        continue
-                    elif x == '+I':
-                        meas[idx] = 'I'
-                    elif x == '+Z':
-                        meas[idx] = 'Z'
-                    elif x =='+X':
-                        meas[idx] = 'X'
-                    elif x == '+Y':
-                        meas[idx] = 'Y'
-                    else:
-                        raise Exception('Illegal measurement symbol :',x)
                 subcircuit_instance_idx = subcircuit_instances_idx[subcircuit_idx][tuple(init),tuple(meas)]
                 kronecker_term += ((coefficient,subcircuit_instance_idx),)
             if kronecker_term in subcircuit_entries[subcircuit_idx]:
@@ -137,9 +119,9 @@ def generate_summation_terms(full_circuit, subcircuits, complete_path_map, subci
                 subcircuit_entries[subcircuit_idx][subcircuit_entry_idx] = kronecker_term
                 subcircuit_entries[subcircuit_idx][kronecker_term] = subcircuit_entry_idx
             summation_term.append((subcircuit_idx,subcircuit_entry_idx))
-        #     print('subcircuit_{:d} kronecker_term = {} --> {:d}'.format(subcircuit_idx,kronecker_term,subcircuit_entry_idx))
-        # print('summation term =',summation_term)
-        # print()
+            print('subcircuit_{:d} kronecker_term = {} --> record as entry {:d}'.format(subcircuit_idx,kronecker_term,subcircuit_entry_idx))
+        print('summation term =',summation_term)
+        print()
         summation_terms.append(summation_term)
     subcircuit_instance_attribution = {subcircuit_idx:{} for subcircuit_idx in range(len(subcircuits))}
     for subcircuit_idx in subcircuit_entries:

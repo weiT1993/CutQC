@@ -240,8 +240,6 @@ class CutQC:
             subcircuit_results = {}
             for key in circ_dict:
                 subcircuit_result = simulate_subcircuit(key=key,subcircuit_info=circ_dict[key],eval_mode=eval_mode)
-                if self.verbose:
-                    print(subcircuit_result)
                 subcircuit_results.update(subcircuit_result)
         else:
             raise NotImplementedError
