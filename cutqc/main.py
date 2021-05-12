@@ -48,6 +48,7 @@ class CutQC:
             os.makedirs(source_folder)
             pickle.dump(cut_solution, open('%s/cut_solution.pckl'%(source_folder),'wb'))
             if self.verbose:
+                print(self.circuits[circuit_name]['circuit'])
                 print('{:s} on {:d}-q : {:d} cuts -->'.format(
                     circuit_name,max_subcircuit_qubit,len(cut_solution['positions'])),flush=True)
                 [print('Subcircuit {:d} : {}'.format(subcircuit_idx,cut_solution['counter'][subcircuit_idx])) for subcircuit_idx in cut_solution['counter']]
@@ -67,7 +68,8 @@ class CutQC:
         circ_dict, all_subcircuit_entries_sampled = self._gather_subcircuits(eval_mode=eval_mode)
         subcircuit_results = self._run_subcircuits(circ_dict=circ_dict,eval_mode=eval_mode)
         self._attribute_shots(subcircuit_results=subcircuit_results,eval_mode=eval_mode,all_subcircuit_entries_sampled=all_subcircuit_entries_sampled)
-        self._build(eval_mode=eval_mode,qubit_limit=qubit_limit,num_nodes=num_nodes,num_threads=num_threads)
+        reconstructed_probs = self._build(eval_mode=eval_mode,qubit_limit=qubit_limit,num_nodes=num_nodes,num_threads=num_threads)
+        return reconstructed_probs
 
     def verify(self, circuits, num_nodes, num_threads, qubit_limit, eval_mode):
         if self.verbose:
@@ -131,27 +133,28 @@ class CutQC:
         summation_terms, subcircuit_entries, subcircuit_instance_attribution = generate_summation_terms(full_circuit=full_circuit,subcircuits=subcircuits,complete_path_map=complete_path_map,subcircuit_instances_idx=subcircuit_instances_idx,counter=counter)
 
         if self.verbose:
-            # print('--> %s subcircuit_instances:'%circuit_name)
-            # row_format = '{:<30} {:<10} {:<30} {:<30}'
-            # for subcircuit_idx in subcircuit_instances:
-            #     print(row_format.format('subcircuit_%d_instance_idx'%subcircuit_idx,'#shots','init','meas'))
-            #     for subcircuit_instance_idx in subcircuit_instances[subcircuit_idx]:
-            #         circuit = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['circuit']
-            #         shots = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['shots']
-            #         init = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['init']
-            #         meas = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['meas']
-            #         print(row_format.format(subcircuit_instance_idx,shots,str(init)[:20]+'...',str(meas)[:20]+'...'))
+            print('--> %s subcircuit_instances:'%circuit_name)
+            row_format = '{:<30} {:<10} {:<30} {:<30}'
+            for subcircuit_idx in subcircuit_instances:
+                print(row_format.format('subcircuit_%d_instance_idx'%subcircuit_idx,'#shots','init','meas'))
+                for subcircuit_instance_idx in subcircuit_instances[subcircuit_idx]:
+                    circuit = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['circuit']
+                    shots = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['shots']
+                    init = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['init']
+                    meas = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['meas']
+                    print(row_format.format(subcircuit_instance_idx,shots,str(init)[:30],str(meas)[:30]))
+                    print(circuit)
 
             print('--> %s subcircuit_entries:'%circuit_name)
             row_format = '{:<30} {:<30}'
             for subcircuit_idx in subcircuit_entries:
-                print(row_format.format('subcircuit_%d_entry_idx'%subcircuit_idx,'kronecker term'))
+                print(row_format.format('subcircuit_%d_entry_idx'%subcircuit_idx,'kronecker term (coeff, instance)'))
                 ctr = 0
                 for subcircuit_entry_idx in subcircuit_entries[subcircuit_idx]:
                     if type(subcircuit_entry_idx) is int:
                         ctr += 1
                         if ctr<=10:
-                            print(row_format.format(subcircuit_entry_idx,str(subcircuit_entries[subcircuit_idx][subcircuit_entry_idx])[:20]+'...'))
+                            print(row_format.format(subcircuit_entry_idx,str(subcircuit_entries[subcircuit_idx][subcircuit_entry_idx])[:30]))
                 print('... Total %d subcircuit entries\n'%ctr)
         
             print('--> %s subcircuit_instance_attribution:'%circuit_name)
@@ -163,7 +166,7 @@ class CutQC:
                     ctr += 1
                     if ctr>10:
                         break
-                    print(row_format.format(subcircuit_instance_idx,str(subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx])[:40]+'...'))
+                    print(row_format.format(subcircuit_instance_idx,str(subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx])[:50]))
                 print('... Total %d subcircuit instances to attribute\n'%len(subcircuit_instance_attribution[subcircuit_idx]))
         
             print('--> %s summation_terms:'%circuit_name)
@@ -237,6 +240,8 @@ class CutQC:
             subcircuit_results = {}
             for key in circ_dict:
                 subcircuit_result = simulate_subcircuit(key=key,subcircuit_info=circ_dict[key],eval_mode=eval_mode)
+                if self.verbose:
+                    print(subcircuit_result)
                 subcircuit_results.update(subcircuit_result)
         else:
             raise NotImplementedError
@@ -266,7 +271,7 @@ class CutQC:
             subcircuit_instance_attribution = read_dict(filename='%s/subcircuit_instance_attribution.pckl'%source_folder)
             attributions = subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx]
             if self.verbose and ctr<=10:
-                print(row_format.format(circuit_name,subcircuit_idx,subcircuit_instance_idx,str(attributions)[:25]+'...'))
+                print(row_format.format(circuit_name,subcircuit_idx,subcircuit_instance_idx,str(attributions)[:30]))
 
             eval_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
             eval_mode=eval_mode,num_threads=None,qubit_limit=None,field='evaluator')
@@ -294,6 +299,7 @@ class CutQC:
             print('--> Build')
             row_format = '{:<15} {:<20} {:<30}'
             print(row_format.format('circuit_name','summation_term_idx','summation_term'))
+        reconstructed_probs = {}
         for circuit_name in self.circuits:
             circuit = self.circuits[circuit_name]['circuit']
             max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
@@ -307,7 +313,7 @@ class CutQC:
             summation_terms_sampled = pickle.load(open('%s/summation_terms_sampled.pckl'%eval_folder,'rb'))
             
             if self.verbose:
-                [print(row_format.format(circuit_name,x['summation_term_idx'],str(x['summation_term'])[:25]+'...')) for x in summation_terms_sampled[:10]]
+                [print(row_format.format(circuit_name,x['summation_term_idx'],str(x['summation_term'])[:30])) for x in summation_terms_sampled[:10]]
                 print('... Total %d summation terms sampled\n'%len(summation_terms_sampled))
             cut_solution = read_dict(filename='%s/cut_solution.pckl'%source_folder)
             full_circuit = cut_solution['circuit']
@@ -368,7 +374,9 @@ class CutQC:
                 else:
                     reconstructed_prob = rank_reconstructed_prob
             elapsed = np.array(elapsed)
+            reconstructed_probs[circuit_name] = reconstructed_prob
             if self.verbose:
                 print('%s _build took %.3e seconds'%(circuit_name,np.mean(elapsed)),flush=True)
                 print('Sampled %d/%d summation terms'%(len(summation_terms_sampled),len(summation_terms)))
             pickle.dump({'reconstructed_prob':reconstructed_prob,'num_summation_terms_sampled':len(summation_terms_sampled),'num_summation_terms':len(summation_terms)},open('%s/build_output.pckl'%(dest_folder),'wb'))
+        return reconstructed_probs
