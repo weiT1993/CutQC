@@ -5,9 +5,9 @@ from cutqc.main import CutQC
 if __name__ == '__main__':
     # Generate some test circuits
     circuits = {}
-    max_subcircuit_qubit = 2
-    for full_circ_size in [3]:
-        circuit = generate_circ(full_circ_size=full_circ_size, circuit_type='bv')
+    max_subcircuit_qubit = 3
+    for full_circ_size in [4]:
+        circuit = generate_circ(full_circ_size=full_circ_size, circuit_type='supremacy')
         circuit_name = 'bv_%d'%full_circ_size
         if circuit.num_qubits==0:
             continue
@@ -23,5 +23,4 @@ if __name__ == '__main__':
     cutqc = CutQC(verbose=True)
     cutqc.cut(circuits=circuits)
     reconstructed_probs = cutqc.evaluate(circuits=circuits,eval_mode=eval_mode,qubit_limit=qubit_limit,num_nodes=num_nodes,num_threads=num_threads,ibmq=None)
-    print(reconstructed_probs)
-    # errors = cutqc.verify(circuits=circuits,num_nodes=num_nodes,num_threads=num_threads,qubit_limit=qubit_limit,eval_mode=eval_mode)
+    errors = cutqc.verify(circuits=circuits,num_nodes=num_nodes,num_threads=num_threads,qubit_limit=qubit_limit,eval_mode=eval_mode)
