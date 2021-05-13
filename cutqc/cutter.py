@@ -37,7 +37,7 @@ class MIP_Model(object):
         self.vertex_y = []
         for i in range(num_subcircuit):
             subcircuit_y = []
-            for j in range(n_vertices):
+            for j in range(self.n_vertices):
                 j_in_i = self.model.addVar(lb=0.0, ub=1.0, vtype=GRB.BINARY)
                 subcircuit_y.append(j_in_i)
             self.vertex_y.append(subcircuit_y)
@@ -52,7 +52,7 @@ class MIP_Model(object):
             self.edge_x.append(subcircuit_x)
         
         # constraint: each vertex in exactly one subcircuit
-        for v in range(n_vertices):
+        for v in range(self.n_vertices):
             self.model.addConstr(quicksum([self.vertex_y[i][v] for i in range(num_subcircuit)]), GRB.EQUAL, 1)
         
         # constraint: edge_var=1 indicates one and only one vertex of an edge is in subcircuit
@@ -100,10 +100,13 @@ class MIP_Model(object):
             quicksum([self.edge_x[subcircuit][i] * self.vertex_y[subcircuit][self.edges[i][0]]
             for i in range(self.n_edges)]))
 
-            self.model.addConstr(subcircuit_rho_qubits + subcircuit_O_qubits <= 5)
+            # self.model.addConstr(subcircuit_rho_qubits + subcircuit_O_qubits <= 5)
 
             subcircuit_d = self.model.addVar(lb=0.1, ub=self.max_subcircuit_qubit, vtype=GRB.INTEGER, name='subcircuit_d_%d'%subcircuit)
             self.model.addConstr(subcircuit_d == subcircuit_original_qubit + subcircuit_rho_qubits)
+
+            # subcircuit_size = self.model.addVar(lb=0.1, ub=int(self.n_vertices/2), vtype=GRB.INTEGER, name='subcircuit_size_%d'%subcircuit)
+            # self.model.addConstr(subcircuit_size == quicksum([self.vertex_y[subcircuit][v] for v in range(self.n_vertices)]))
 
             num_effective_qubits.append(subcircuit_d-subcircuit_O_qubits)
 
@@ -259,7 +262,7 @@ def read_circ(circuit):
             v_id = vertex_ids[id(v)]
             edges.append((u_id, v_id))
             
-    n_vertices = len(list(dag.topological_op_nodes()))
+    n_vertices = dag.size()
     return n_vertices, edges, node_name_ids, id_node_names
 
 def cuts_parser(cuts, circ):
@@ -455,7 +458,9 @@ def get_pairs(complete_path_map):
 def get_counter(subcircuits, O_rho_pairs):
     counter = {}
     for subcircuit_idx, subcircuit in enumerate(subcircuits):
-        counter[subcircuit_idx] = {'effective':subcircuit.num_qubits,'rho':0,'O':0,'d':subcircuit.num_qubits}
+        counter[subcircuit_idx] = {'effective':subcircuit.num_qubits,'rho':0,'O':0,'d':subcircuit.num_qubits,
+        'depth':subcircuit.depth(),
+        'size':subcircuit.size()}
     for pair in O_rho_pairs:
         O_qubit, rho_qubit = pair
         # print(O_qubit,rho_qubit)

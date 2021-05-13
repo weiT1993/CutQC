@@ -49,10 +49,16 @@ class CutQC:
             pickle.dump(cut_solution, open('%s/cut_solution.pckl'%(source_folder),'wb'))
             if self.verbose:
                 print(self.circuits[circuit_name]['circuit'])
+                print('width = %d, depth = %d, size = %d'%(
+                    self.circuits[circuit_name]['circuit'].num_qubits,
+                    self.circuits[circuit_name]['circuit'].depth(),
+                    self.circuits[circuit_name]['circuit'].size()))
                 print('{:s} on {:d}-q : {:d} cuts -->'.format(
                     circuit_name,max_subcircuit_qubit,len(cut_solution['positions'])),flush=True)
-                [print('Subcircuit {:d} : {}'.format(subcircuit_idx,cut_solution['counter'][subcircuit_idx])) for subcircuit_idx in cut_solution['counter']]
-                print('Estimated postprocessing cost = %.3e'%cut_solution['cost_estimate'])
+                for subcircuit_idx in cut_solution['counter']:
+                    print('Subcircuit {:d} : {}'.format(subcircuit_idx,cut_solution['counter'][subcircuit_idx]),flush=True)
+                    print(cut_solution['subcircuits'][subcircuit_idx])
+                print('Estimated postprocessing cost = %.3e'%cut_solution['cost_estimate'],flush=True)
         
             self._generate_subcircuits(circuit_name=circuit_name)
     

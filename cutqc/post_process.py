@@ -79,13 +79,13 @@ def generate_summation_terms(full_circuit, subcircuits, complete_path_map, subci
     O_rho_pairs, combinations = get_combinations(complete_path_map=complete_path_map)
     smart_order = sorted(range(len(subcircuits)),key=lambda subcircuit_idx:counter[subcircuit_idx]['effective'])
     for i, combination in enumerate(combinations):
-        print('%d/%d combinations:'%(i+1,len(combinations)),combination)
+        # print('%d/%d combinations:'%(i+1,len(combinations)),combination)
         summation_term = []
         all_init_meas = find_init_meas(combination, O_rho_pairs, subcircuits)
         for subcircuit_idx in smart_order:
             kronecker_term = ()
             for init_meas in all_init_meas[subcircuit_idx]:
-                print('Subcircuit_%d init_meas ='%subcircuit_idx,init_meas)
+                # print('Subcircuit_%d init_meas ='%subcircuit_idx,init_meas)
                 coefficient = 1
                 init = list(init_meas[0])
                 for idx, x in enumerate(init):
@@ -119,9 +119,9 @@ def generate_summation_terms(full_circuit, subcircuits, complete_path_map, subci
                 subcircuit_entries[subcircuit_idx][subcircuit_entry_idx] = kronecker_term
                 subcircuit_entries[subcircuit_idx][kronecker_term] = subcircuit_entry_idx
             summation_term.append((subcircuit_idx,subcircuit_entry_idx))
-            print('subcircuit_{:d} kronecker_term = {} --> record as entry {:d}'.format(subcircuit_idx,kronecker_term,subcircuit_entry_idx))
-        print('summation term =',summation_term)
-        print()
+        #     print('subcircuit_{:d} kronecker_term = {} --> record as entry {:d}'.format(subcircuit_idx,kronecker_term,subcircuit_entry_idx))
+        # print('summation term =',summation_term)
+        # print()
         summation_terms.append(summation_term)
     subcircuit_instance_attribution = {subcircuit_idx:{} for subcircuit_idx in range(len(subcircuits))}
     for subcircuit_idx in subcircuit_entries:
