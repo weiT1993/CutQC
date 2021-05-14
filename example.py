@@ -7,16 +7,16 @@ from cutqc.main import CutQC
 if __name__ == '__main__':
     # Generate a circuit from qasm file
     circuits = {}
-    circuit = QuantumCircuit().from_qasm_file('circuit.qasm')
-    circuit_name = 'test_%d'%circuit.num_qubits
-    circuits[circuit_name] = {
-        'circuit':circuit,'max_subcircuit_qubit':8,'max_cuts':20,'num_subcircuits':[3]}
+    # circuit = QuantumCircuit().from_qasm_file('circuit.qasm')
+    # circuit_name = 'test_%d'%circuit.num_qubits
+    # circuits[circuit_name] = {
+    #     'circuit':circuit,'max_subcircuit_qubit':8,'max_cuts':20,'num_subcircuits':[3]}
     
     # Generate a circuit from the provided circuit generator
     circuit = generate_circ(full_circ_size=4, circuit_type='supremacy')
     circuit_name = 'supremacy_%d'%circuit.num_qubits
     circuits[circuit_name] = {
-        'circuit':circuit,'max_subcircuit_qubit':3,'max_cuts':10,'num_subcircuits':[2,3,4,5]}
+        'circuit':circuit,'max_subcircuit_qubit':3,'max_cuts':10,'num_subcircuits':[2,3]}
 
     # Use CutQC package to evaluate the circuits
     num_nodes = 1
