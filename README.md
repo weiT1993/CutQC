@@ -31,7 +31,7 @@ Windows/MacOS may require different setups and support is currently not provided
 ## Example Code
 For example, use CutQC to cut a 3*5 Supremacy circuit and run on a 10-qubit quantum computer
 ```
-python test.py
+python example.py
 ```
 
 ## Citing CutQC
@@ -43,5 +43,5 @@ Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi
 Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
 
 ## Coming soon
-Standard multi-node classical post-processing tools to be used on HPC clusters.
-The original implementation in the paper does not port easily to other HPC platforms.
+- [ ] Let users manually input cut points
+- [ ] Multi-node classical post-processing tools to be used on HPC clusters

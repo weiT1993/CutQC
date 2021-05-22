@@ -8,16 +8,16 @@ def check_valid(circuit):
     CutQC hence only cuts a circuit if it is fully connected.
     Furthermore, CutQC only supports 2-qubit gates.
     '''
-    try:
-        assert circuit.num_unitary_factors()==1
-    except:
-        raise Exception('Input circuit is not fully connected thus does not need cutting. Number of unitary factors = %d'%circuit.num_unitary_factors())
+    if circuit.num_unitary_factors()!=1:
+        raise ValueError('Input circuit is not fully connected thus does not need cutting. Number of unitary factors = %d'%circuit.num_unitary_factors())
+    if circuit.num_clbits>0:
+        raise ValueError('Please remove classical bits from the circuit before cutting')
     dag = circuit_to_dag(circuit)
     for op_node in dag.topological_op_nodes():
         if len(op_node.qargs)>2:
-            raise Exception('CutQC does not support >2-qubit gates')
+            raise ValueError('CutQC currently does not support >2-qubit gates')
         if op_node.op.name=='barrier':
-            raise Exception('Please remove barriers from the circuit before cutting')
+            raise ValueError('Please remove barriers from the circuit before cutting')
 
 def get_dirname(circuit_name,max_subcircuit_qubit,eval_mode,num_threads,qubit_limit,field):
     '''

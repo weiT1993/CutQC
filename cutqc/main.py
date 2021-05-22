@@ -2,6 +2,7 @@ import os, subprocess, pickle, glob, random, time
 import numpy as np
 import multiprocessing as mp
 from datetime import datetime
+from tqdm import tqdm
 
 from qiskit_helper_functions.non_ibmq_functions import evaluate_circ, read_dict, find_process_jobs
 from qiskit_helper_functions.schedule import Scheduler
@@ -15,56 +16,66 @@ from cutqc.verify import verify
 
 class CutQC:
     '''
-    The CutQC class should only handle the IOs
-    Leave all actual functions to individual modules
+    The main module for CutQC
+    cut --> evaluate results --> verify (optional)
     '''
-    def __init__(self, verbose):
+    def __init__(self, circuit_name, circuit, verbose):
+        '''
+        Args:
+        circuit: the input quantum circuit
+        circuit_name: can be arbitrary
+        verbose: setting verbose to True to turn on logging information.
+        Useful to visualize what happens,
+        but may produce very long outputs for complicated circuits.
+        '''
+        check_valid(circuit=circuit)
+        self.circuit_name = circuit_name
+        self.circuit = circuit
         self.verbose = verbose
     
-    def cut(self, circuits):
-        self.circuits = circuits
-        self._check_input()
+    def cut(self,
+    max_subcircuit_qubit, max_cuts, num_subcircuits,
+    subcircuit_vertices):
+        '''
+        Cut the given circuit
+
+        If use the MIP solver to automatically find cuts, supply
+        max_subcircuit_qubit: max number of qubits in each subcircuit
+        max_cuts: max number of cuts allowed
+        num_subcircuits: list of subcircuits to try, CutQC returns the best solution found among trials
+
+        Else supply subcircuit_vertices manually
+        Note that subcircuit_vertices override all other arguments
+        '''
         if self.verbose:
             print('*'*20,'Cut','*'*20)
-        data = []
-        for circuit_name in self.circuits:
-            circuit = self.circuits[circuit_name]['circuit']
-            max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
-            max_cuts = self.circuits[circuit_name]['max_cuts']
-            num_subcircuits = self.circuits[circuit_name]['num_subcircuits']
-            data.append([circuit,max_subcircuit_qubit,num_subcircuits,max_cuts,False])
-        pool = mp.Pool(processes=mp.cpu_count())
-        cut_solutions = pool.starmap(find_cuts,data)
-        pool.close()
+            print('%s : width = %d, depth = %d, size = %d'%(
+                self.circuit_name,
+                self.circuit.num_qubits,
+                self.circuit.depth(),
+                self.circuit.size()))
+        
+        if subcircuit_vertices is None:
+            if max_subcircuit_qubit is None or max_cuts is None or num_subcircuits is None:
+                raise AttributeError('Using automatic MIP cut searcher, please provide all fields required')
+            cut_solution = find_cuts(circuit=self.circuit,
+            max_subcircuit_qubit=max_subcircuit_qubit,
+            max_cuts=max_cuts,
+            num_subcircuits=num_subcircuits,
+            verbose=self.verbose)
 
-        for circuit_name, cut_solution in zip(self.circuits,cut_solutions):
-            if len(cut_solution) == 0:
-                continue
-            max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
-            source_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
+        if len(cut_solution) > 0:
+            source_folder = get_dirname(circuit_name=self.circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
             eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
             if os.path.exists(source_folder):
                 subprocess.run(['rm','-r',source_folder])
             os.makedirs(source_folder)
             pickle.dump(cut_solution, open('%s/cut_solution.pckl'%(source_folder),'wb'))
-            if self.verbose:
-                print(self.circuits[circuit_name]['circuit'])
-                print('width = %d, depth = %d, size = %d'%(
-                    self.circuits[circuit_name]['circuit'].num_qubits,
-                    self.circuits[circuit_name]['circuit'].depth(),
-                    self.circuits[circuit_name]['circuit'].size()))
-                print('{:s} on {:d}-q : {:d} cuts -->'.format(
-                    circuit_name,max_subcircuit_qubit,len(cut_solution['positions'])),flush=True)
-                for subcircuit_idx in cut_solution['counter']:
-                    print('Subcircuit {:d} : {}'.format(subcircuit_idx,cut_solution['counter'][subcircuit_idx]),flush=True)
-                    print(cut_solution['subcircuits'][subcircuit_idx])
-                print('Estimated postprocessing cost = %.3e'%cut_solution['cost_estimate'],flush=True)
-        
-            self._generate_subcircuits(circuit_name=circuit_name)
+            self._generate_subcircuits(source_folder=source_folder,cut_solution=cut_solution)
     
     def evaluate(self,circuits,eval_mode,qubit_limit,num_nodes,num_threads,ibmq):
         if self.verbose:
-            print('*'*20,'evaluation mode = %s'%(eval_mode),'*'*20)
+            print('*'*20,'evaluation mode = %s'%(eval_mode),'*'*20,flush=True)
         self.circuits = circuits
         
         subprocess.run(['rm','./cutqc/build'])
@@ -79,12 +90,12 @@ class CutQC:
 
     def verify(self, circuits, num_nodes, num_threads, qubit_limit, eval_mode):
         if self.verbose:
-            print('*'*20,'Verify','*'*20)
+            print('*'*20,'Verify','*'*20,flush=True)
         self.circuits = circuits
         errors = {}
         row_format = '{:<20} {:<10} {:<30}'
         if self.verbose:
-            print(row_format.format('Circuit Name','QPU','Error'))
+            print(row_format.format('Circuit Name','QPU','Error'),flush=True)
         for circuit_name in self.circuits:
             max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
             
@@ -108,28 +119,15 @@ class CutQC:
             key = (circuit_name,eval_mode)
             errors[key] = squared_error
             if self.verbose:
-                print(row_format.format(*key,'%.1e'%squared_error))
+                print(row_format.format(*key,'%.1e'%squared_error),flush=True)
         if self.verbose:
             print()
         return errors
     
-    def _check_input(self):
-        for circuit_name in self.circuits:
-            circuit = self.circuits[circuit_name]['circuit']
-            check_valid(circuit=circuit)
-    
-    def _generate_subcircuits(self, circuit_name):
+    def _generate_subcircuits(self,source_folder,cut_solution):
         '''
         Generate subcircuit variations and the summation terms
         '''
-        circuit = self.circuits[circuit_name]['circuit']
-        max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
-        max_cuts = self.circuits[circuit_name]['max_cuts']
-        num_subcircuits = self.circuits[circuit_name]['num_subcircuits']
-        source_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-        eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
-        cut_solution = read_dict('%s/cut_solution.pckl'%(source_folder))
-        assert(max_subcircuit_qubit == cut_solution['max_subcircuit_qubit'])
         full_circuit = cut_solution['circuit']
         subcircuits = cut_solution['subcircuits']
         complete_path_map = cut_solution['complete_path_map']
@@ -139,43 +137,43 @@ class CutQC:
         summation_terms, subcircuit_entries, subcircuit_instance_attribution = generate_summation_terms(full_circuit=full_circuit,subcircuits=subcircuits,complete_path_map=complete_path_map,subcircuit_instances_idx=subcircuit_instances_idx,counter=counter)
 
         if self.verbose:
-            print('--> %s subcircuit_instances:'%circuit_name)
-            row_format = '{:<30} {:<10} {:<30} {:<30}'
+            print('--> %s subcircuit_instances:'%self.circuit_name,flush=True)
+            row_format = '{:<15} {:<15} {:<10} {:<30} {:<30}'
+            print(row_format.format('subcircuit','instance_idx','#shots','init','meas'),flush=True)
             for subcircuit_idx in subcircuit_instances:
-                print(row_format.format('subcircuit_%d_instance_idx'%subcircuit_idx,'#shots','init','meas'))
                 for subcircuit_instance_idx in subcircuit_instances[subcircuit_idx]:
                     circuit = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['circuit']
                     shots = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['shots']
                     init = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['init']
                     meas = subcircuit_instances[subcircuit_idx][subcircuit_instance_idx]['meas']
-                    print(row_format.format(subcircuit_instance_idx,shots,str(init)[:30],str(meas)[:30]))
-                    print(circuit)
+                    print(row_format.format(subcircuit_idx,subcircuit_instance_idx,shots,str(init)[:30],str(meas)[:30]))
+                print('-'*20,flush=True)
 
-            print('--> %s subcircuit_entries:'%circuit_name)
+            print('--> %s subcircuit_entries:'%self.circuit_name,flush=True)
             row_format = '{:<30} {:<30}'
             for subcircuit_idx in subcircuit_entries:
-                print(row_format.format('subcircuit_%d_entry_idx'%subcircuit_idx,'kronecker term (coeff, instance)'))
+                print(row_format.format('subcircuit_%d_entry_idx'%subcircuit_idx,'kronecker term (coeff, instance)'),flush=True)
                 ctr = 0
                 for subcircuit_entry_idx in subcircuit_entries[subcircuit_idx]:
                     if type(subcircuit_entry_idx) is int:
                         ctr += 1
                         if ctr<=10:
                             print(row_format.format(subcircuit_entry_idx,str(subcircuit_entries[subcircuit_idx][subcircuit_entry_idx])[:30]))
-                print('... Total %d subcircuit entries\n'%ctr)
+                print('... Total %d subcircuit entries\n'%ctr,flush=True)
         
-            print('--> %s subcircuit_instance_attribution:'%circuit_name)
+            print('--> %s subcircuit_instance_attribution:'%self.circuit_name,flush=True)
             row_format = '{:<30} {:<50}'
             for subcircuit_idx in subcircuit_instance_attribution:
-                print(row_format.format('subcircuit_%d_instance_idx'%subcircuit_idx,'coefficient, subcircuit_entry_idx'))
+                print(row_format.format('subcircuit_%d_instance_idx'%subcircuit_idx,'coefficient, subcircuit_entry_idx'),flush=True)
                 ctr = 0
                 for subcircuit_instance_idx in subcircuit_instance_attribution[subcircuit_idx]:
                     ctr += 1
                     if ctr>10:
                         break
-                    print(row_format.format(subcircuit_instance_idx,str(subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx])[:50]))
+                    print(row_format.format(subcircuit_instance_idx,str(subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx])[:50]),flush=True)
                 print('... Total %d subcircuit instances to attribute\n'%len(subcircuit_instance_attribution[subcircuit_idx]))
         
-            print('--> %s summation_terms:'%circuit_name)
+            print('--> %s summation_terms:'%self.circuit_name)
             row_format = '{:<10}'*len(subcircuits)
             for summation_term in summation_terms[:10]:
                 row = []
@@ -183,7 +181,7 @@ class CutQC:
                     subcircuit_idx, subcircuit_entry_idx = subcircuit_entry
                     row.append('%d,%d'%(subcircuit_idx,subcircuit_entry_idx))
                 print(row_format.format(*row))
-            print('... Total %d summations\n'%len(summation_terms))
+            print('... Total %d summations\n'%len(summation_terms),flush=True)
         
         pickle.dump(subcircuit_instances, open('%s/subcircuit_instances.pckl'%(source_folder),'wb'))
         pickle.dump(subcircuit_instances_idx, open('%s/subcircuit_instances_idx.pckl'%(source_folder),'wb'))
@@ -240,11 +238,11 @@ class CutQC:
         Run all the subcircuits
         '''
         if self.verbose:
-            print('--> Running Subcircuits')
-            print('%d total'%len(circ_dict))
+            print('--> Running Subcircuits',flush=True)
+            print('%d total'%len(circ_dict),flush=True)
         if eval_mode=='sv' or eval_mode=='qasm' or eval_mode=='runtime':
             subcircuit_results = {}
-            for key in circ_dict:
+            for key in tqdm(list(circ_dict.keys())):
                 subcircuit_result = simulate_subcircuit(key=key,subcircuit_info=circ_dict[key],eval_mode=eval_mode)
                 subcircuit_results.update(subcircuit_result)
         else:
@@ -257,11 +255,11 @@ class CutQC:
         '''
         row_format = '{:<15} {:<15} {:<25} {:<30}'
         if self.verbose:
-            print('--> Attribute shots')
-            print(row_format.format('circuit_name','subcircuit_idx','subcircuit_instance_idx','coefficient, subcircuit_entry_idx'))
+            print('--> Attribute shots',flush=True)
+            print(row_format.format('circuit_name','subcircuit_idx','subcircuit_instance_idx','coefficient, subcircuit_entry_idx'),flush=True)
         ctr = 0
         subcircuit_entry_probs = {}
-        for key in subcircuit_results:
+        for key in tqdm(list(subcircuit_results.keys())):
             ctr += 1
             circuit_name, subcircuit_idx, init, meas = key
             subcircuit_entries_sampled = all_subcircuit_entries_sampled[circuit_name]
@@ -275,7 +273,7 @@ class CutQC:
             subcircuit_instance_attribution = read_dict(filename='%s/subcircuit_instance_attribution.pckl'%source_folder)
             attributions = subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx]
             if self.verbose and ctr<=10:
-                print(row_format.format(circuit_name,subcircuit_idx,subcircuit_instance_idx,str(attributions)[:30]))
+                print(row_format.format(circuit_name,subcircuit_idx,subcircuit_instance_idx,str(attributions)[:30]),flush=True)
 
             eval_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
             eval_mode=eval_mode,num_threads=None,qubit_limit=None,field='evaluator')
@@ -296,7 +294,7 @@ class CutQC:
             [subcircuit_entry_file.write('%e '%x) for x in subcircuit_entry_prob]
             subcircuit_entry_file.close()
         if self.verbose:
-            print('... Total %d subcircuit results attributed\n'%ctr)
+            print('... Total %d subcircuit results attributed\n'%ctr,flush=True)
     
     def _build(self, eval_mode, qubit_limit, num_nodes, num_threads):
         if self.verbose:
