@@ -46,15 +46,11 @@ def make_QV():
     return largest
 
 if __name__ == '__main__':
-    # self.subcircuits_vertices = [
-    # [self.id_vertices[vertex_idx] for vertex_idx in range(26)],
-    # [self.id_vertices[vertex_idx] for vertex_idx in [26,27,28]],
-    # [self.id_vertices[vertex_idx] for vertex_idx in [29,30,31]]
-    # ]
-
     circuit = make_QV() # Or any other circuits
     cutqc = CutQC(circuit_name='QV_%d'%circuit.num_qubits,circuit=circuit,verbose=True)
-    cutqc.cut(max_subcircuit_qubit=8, max_cuts=10, num_subcircuits=[3],subcircuit_vertices=None)
+
+    # cutqc.cut(max_subcircuit_qubit=8, max_cuts=10, num_subcircuits=[3])
+    cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
 
     # num_nodes = 1
     # num_threads = 1

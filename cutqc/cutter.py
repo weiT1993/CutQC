@@ -154,7 +154,7 @@ class MIP_Model(object):
         
         if self.model.solcount > 0:
             self.objective = None
-            self.subcircuits_vertices = []
+            self.subcircuits = []
             self.optimal = (self.model.Status == gp.GRB.OPTIMAL)
             self.runtime = self.model.Runtime
             self.node_count = self.model.nodecount
@@ -162,12 +162,12 @@ class MIP_Model(object):
             self.objective = self.model.ObjVal
 
             for i in range(self.num_subcircuit):
-                subcircuit_vertices = []
+                subcircuit = []
                 for j in range(self.n_vertices):
                     if abs(self.vertex_var[i][j].x) > 1e-4:
-                        subcircuit_vertices.append(self.id_vertices[j])
-                self.subcircuits_vertices.append(subcircuit_vertices)
-            assert sum([len(x) for x in self.subcircuits_vertices])==self.n_vertices
+                        subcircuit.append(self.id_vertices[j])
+                self.subcircuits.append(subcircuit)
+            assert sum([len(subcircuit) for subcircuit in self.subcircuits])==self.n_vertices
 
             cut_edges_idx = []
             cut_edges = []
@@ -374,23 +374,16 @@ def circuit_stripping(circuit):
             stripped_dag.apply_operation_back(op=vertex.op, qargs=vertex.qargs)
     return dag_to_circuit(stripped_dag)
 
-def cost_estimate(num_rho_qubits,num_O_qubits,num_d_qubits):
-    num_cuts = sum(num_rho_qubits)
-    num_rho_qubits = np.array(num_rho_qubits)
-    num_O_qubits = np.array(num_O_qubits)
-    num_d_qubits = np.array(num_d_qubits)
-    num_effective_qubits = num_d_qubits - num_O_qubits
-    num_effective_qubits, smart_order = zip(*sorted(zip(num_effective_qubits, range(len(num_d_qubits)))))
+def cost_estimate(counter):
+    num_cuts = sum([counter[subcircuit_idx]['rho'] for subcircuit_idx in counter])
+    subcircuit_indices = list(counter.keys())
+    num_effective_qubits = [counter[subcircuit_idx]['effective'] for subcircuit_idx in subcircuit_indices]
+    num_effective_qubits, smart_order = zip(*sorted(zip(num_effective_qubits, subcircuit_indices)))
     reconstruction_cost = 0
-    accumulated_kron_len = 1
-    for counter, subcircuit_idx in enumerate(smart_order):
-        rho = num_rho_qubits[subcircuit_idx]
-        O = num_O_qubits[subcircuit_idx]
-        d = num_d_qubits[subcircuit_idx]
-        effective = d - O
+    accumulated_kron_len = 2**num_effective_qubits[0]
+    for effective in num_effective_qubits[1:]:
         accumulated_kron_len *= 2**effective
-        if counter > 0:
-            reconstruction_cost += accumulated_kron_len
+        reconstruction_cost += accumulated_kron_len
     reconstruction_cost *= 4**num_cuts
     return reconstruction_cost
 
@@ -452,40 +445,17 @@ def find_cuts(circuit, max_subcircuit_qubit, max_cuts, num_subcircuits, verbose)
         else:
             min_objective = mip_model.objective
             positions = cuts_parser(mip_model.cut_edges, circuit)
-            subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=mip_model.subcircuits_vertices, circuit=circuit)
-            num_rho_qubits = []
-            num_O_qubits = []
-            num_d_qubits = []
-            for i in range(num_subcircuit):
-                subcircuit_rho_qubits = mip_model.model.getVarByName('subcircuit_rho_qubits_%d'%i)
-                subcircuit_O_qubits = mip_model.model.getVarByName('subcircuit_O_qubits_%d'%i)
-                subcircuit_d = mip_model.model.getVarByName('subcircuit_d_%d'%i)
-                num_rho_qubits.append(subcircuit_rho_qubits.X)
-                num_O_qubits.append(subcircuit_O_qubits.X)
-                num_d_qubits.append(subcircuit_d.X)
-            
+            subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=mip_model.subcircuits, circuit=circuit)
             O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
             counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
 
-            reconstruction_cost = cost_estimate(num_rho_qubits,num_O_qubits,num_d_qubits)
+            reconstruction_cost = cost_estimate(counter=counter)
             if verbose:
                 print('-'*20)
-                print('MIP trial:')
-                # print('node count:', self.node_count)
-                # print('%d vertices %d edges graph. Max qubit = %d'%
-                # (self.n_vertices, self.n_edges, self.max_subcircuit_qubit))
-                print('%d subcircuits, %d cuts'%(num_subcircuit,len(mip_model.cut_edges)))
-
-                for subcircuit_idx in range(num_subcircuit):
-                    print('subcircuit %d'%subcircuit_idx)
-                    print('\u03C1 qubits = %d, O qubits = %d, width = %d, effective = %d, depth = %d, size = %d' % 
-                    (counter[subcircuit_idx]['rho'],
-                    counter[subcircuit_idx]['O'],
-                    counter[subcircuit_idx]['d'],
-                    counter[subcircuit_idx]['effective'],
-                    counter[subcircuit_idx]['depth'],
-                    counter[subcircuit_idx]['size']))
-                    print(subcircuits[subcircuit_idx])
+                print_cutter_result(num_subcircuit=num_subcircuit,
+                num_cuts=len(mip_model.cut_edges),
+                subcircuits=subcircuits,
+                counter=counter, reconstruction_cost=reconstruction_cost)
 
                 print('Model objective value = %.2e'%(mip_model.objective))
                 print('MIP runtime:', mip_model.runtime)
@@ -494,7 +464,6 @@ def find_cuts(circuit, max_subcircuit_qubit, max_cuts, num_subcircuits, verbose)
                     print('OPTIMAL, MIP gap =',mip_model.mip_gap)
                 else:
                     print('NOT OPTIMAL, MIP gap =',mip_model.mip_gap)
-                print('Estimated postprocessing cost = %.3e'%reconstruction_cost,flush=True)
                 print('-'*20)
 
             if reconstruction_cost < min_postprocessing_cost:
@@ -504,12 +473,57 @@ def find_cuts(circuit, max_subcircuit_qubit, max_cuts, num_subcircuits, verbose)
                 'max_subcircuit_qubit':max_subcircuit_qubit,
                 'subcircuits':subcircuits,
                 'complete_path_map':complete_path_map,
-                'searcher_time':mip_model.runtime,
-                'num_rho_qubits':num_rho_qubits,
-                'num_O_qubits':num_O_qubits,
-                'num_d_qubits':num_d_qubits,
-                'objective':mip_model.objective,
                 'positions':positions,
-                'counter':counter,
-                'cost_estimate':reconstruction_cost}
+                'counter':counter}
     return cut_solution
+
+def cut_circuit(circuit, subcircuit_vertices, verbose):
+    stripped_circ = circuit_stripping(circuit=circuit)
+    n_vertices, edges, vertex_ids, id_vertices = read_circ(circuit=stripped_circ)
+
+    subcircuits = []
+    for vertices in subcircuit_vertices:
+        subcircuit = []
+        for vertex in vertices:
+            subcircuit.append(id_vertices[vertex])
+        subcircuits.append(subcircuit)
+    if sum([len(subcircuit) for subcircuit in subcircuits])!=n_vertices:
+        raise ValueError('Not all gates are assigned into subcircuits')
+
+    subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=subcircuits, circuit=circuit)
+    O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
+    counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
+    reconstruction_cost = cost_estimate(counter=counter)
+    max_subcircuit_qubit = max([subcircuit.size() for subcircuit in subcircuits])
+
+    if verbose:
+        print('-'*20)
+        print_cutter_result(num_subcircuit=len(subcircuit_vertices),
+        num_cuts=len(O_rho_pairs),
+        subcircuits=subcircuits,
+        counter=counter, reconstruction_cost=reconstruction_cost)
+        print('-'*20)
+
+    cut_solution = {
+        'circuit':circuit,
+        'max_subcircuit_qubit':max_subcircuit_qubit,
+        'subcircuits':subcircuits,
+        'complete_path_map':complete_path_map,
+        'counter':counter}
+    return cut_solution
+
+def print_cutter_result(num_subcircuit, num_cuts, subcircuits, counter, reconstruction_cost):
+    print('Cutter result:')
+    print('%d subcircuits, %d cuts'%(num_subcircuit,num_cuts))
+
+    for subcircuit_idx in range(num_subcircuit):
+        print('subcircuit %d'%subcircuit_idx)
+        print('\u03C1 qubits = %d, O qubits = %d, width = %d, effective = %d, depth = %d, size = %d' % 
+        (counter[subcircuit_idx]['rho'],
+        counter[subcircuit_idx]['O'],
+        counter[subcircuit_idx]['d'],
+        counter[subcircuit_idx]['effective'],
+        counter[subcircuit_idx]['depth'],
+        counter[subcircuit_idx]['size']))
+        print(subcircuits[subcircuit_idx])
+    print('Estimated postprocessing cost = %.3e'%reconstruction_cost,flush=True)
