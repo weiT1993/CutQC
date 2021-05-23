@@ -8,7 +8,7 @@ from qiskit_helper_functions.non_ibmq_functions import evaluate_circ, read_dict,
 from qiskit_helper_functions.schedule import Scheduler
 
 from cutqc.helper_fun import check_valid, get_dirname
-from cutqc.cutter import find_cuts
+from cutqc.cutter import find_cuts, cut_circuit
 from cutqc.evaluator import generate_subcircuit_instances, simulate_subcircuit
 from cutqc.sampling import dummy_sample, get_subcircuit_instances_sampled, get_subcircuit_entries_sampled
 from cutqc.post_process import generate_summation_terms
@@ -34,8 +34,8 @@ class CutQC:
         self.verbose = verbose
     
     def cut(self,
-    max_subcircuit_qubit, max_cuts, num_subcircuits,
-    subcircuit_vertices):
+    max_subcircuit_qubit=None, max_cuts=None, num_subcircuits=None,
+    subcircuit_vertices=None):
         '''
         Cut the given circuit
 
@@ -57,15 +57,17 @@ class CutQC:
         
         if subcircuit_vertices is None:
             if max_subcircuit_qubit is None or max_cuts is None or num_subcircuits is None:
-                raise AttributeError('Using automatic MIP cut searcher, please provide all fields required')
+                raise AttributeError('Check the specifications requirement of the automatic MIP cut searcher!')
             cut_solution = find_cuts(circuit=self.circuit,
             max_subcircuit_qubit=max_subcircuit_qubit,
             max_cuts=max_cuts,
             num_subcircuits=num_subcircuits,
             verbose=self.verbose)
+        else:
+            cut_solution = cut_circuit(circuit=self.circuit,subcircuit_vertices=subcircuit_vertices,verbose=self.verbose)
 
         if len(cut_solution) > 0:
-            source_folder = get_dirname(circuit_name=self.circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
+            source_folder = get_dirname(circuit_name=self.circuit_name,max_subcircuit_qubit=cut_solution['max_subcircuit_qubit'],
             eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
             if os.path.exists(source_folder):
                 subprocess.run(['rm','-r',source_folder])

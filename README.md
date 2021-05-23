@@ -43,5 +43,5 @@ Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi
 Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
 
 ## Coming soon
-- [ ] Let users manually input cut points
+- [ ] Run on IBMQ backends
 - [ ] Multi-node classical post-processing tools to be used on HPC clusters
