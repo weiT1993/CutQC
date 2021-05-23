@@ -494,7 +494,7 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
     O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
     counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
     reconstruction_cost = cost_estimate(counter=counter)
-    max_subcircuit_qubit = max([subcircuit.size() for subcircuit in subcircuits])
+    max_subcircuit_qubit = max([subcircuit.width() for subcircuit in subcircuits])
 
     if verbose:
         print('-'*20)

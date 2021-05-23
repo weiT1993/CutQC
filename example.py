@@ -46,15 +46,16 @@ def make_QV():
     return largest
 
 if __name__ == '__main__':
-    circuit = make_QV() # Or any other circuits
+    # Make a circuit
+    circuit = make_QV()
+    
     cutqc = CutQC(circuit_name='QV_%d'%circuit.num_qubits,circuit=circuit,verbose=True)
-
-    # cutqc.cut(max_subcircuit_qubit=8, max_cuts=10, num_subcircuits=[3])
-    cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
-
-    # num_nodes = 1
-    # num_threads = 1
-    # qubit_limit = 24
-    # eval_mode = 'sv'
-    # reconstructed_probs = cutqc.evaluate(circuits=circuits,eval_mode=eval_mode,qubit_limit=qubit_limit,num_nodes=num_nodes,num_threads=num_threads,ibmq=None)
-    # errors = cutqc.verify(circuits=circuits,num_nodes=num_nodes,num_threads=num_threads,qubit_limit=qubit_limit,eval_mode=eval_mode)
+    
+    # Option 1: automatic MIP solver
+    source_folder = cutqc.cut(max_subcircuit_qubit=8, max_cuts=10, num_subcircuits=[2,3])
+    # Option 2: manually specify subcircuit partitions
+    # source_folder = cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
+    
+    # Evaluate and verify CutQC results
+    dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='sv',mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
+    cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)

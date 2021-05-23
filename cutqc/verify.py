@@ -2,18 +2,11 @@ import pickle
 import argparse
 import glob
 import numpy as np
-from time import time
-import itertools
-import matplotlib.pyplot as plt
-import os
 
-from cutqc.helper_fun import get_dirname
-from qiskit_helper_functions.non_ibmq_functions import read_dict, evaluate_circ
-from qiskit_helper_functions.metrics import MSE
+from qiskit_helper_functions.non_ibmq_functions import evaluate_circ
 
 def verify(full_circuit,unordered,complete_path_map,subcircuits,smart_order):
     ground_truth = evaluate_circ(circuit=full_circuit,backend='statevector_simulator')
-    _, error_baseline = MSE(target=ground_truth,obs=np.ones(len(ground_truth))/len(ground_truth))
     subcircuit_out_qubits = {subcircuit_idx:[] for subcircuit_idx in smart_order}
     for input_qubit in complete_path_map:
         path = complete_path_map[input_qubit]
@@ -37,4 +30,4 @@ def verify(full_circuit,unordered,complete_path_map,subcircuits,smart_order):
         ordered_p = ground_truth[ordered_state]
         squared_error_contribution = np.power(ordered_p-unordered_p,2)
         squared_error += squared_error_contribution
-    return squared_error/error_baseline
+    return squared_error/len(unordered)

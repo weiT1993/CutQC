@@ -19,7 +19,7 @@ def check_valid(circuit):
         if op_node.op.name=='barrier':
             raise ValueError('Please remove barriers from the circuit before cutting')
 
-def get_dirname(circuit_name,max_subcircuit_qubit,eval_mode,num_threads,qubit_limit,field):
+def get_dirname(circuit_name,max_subcircuit_qubit,eval_mode,num_threads,mem_limit,field):
     '''
     Directory management for CutQC.
     '''
@@ -28,11 +28,11 @@ def get_dirname(circuit_name,max_subcircuit_qubit,eval_mode,num_threads,qubit_li
     elif field=='evaluator':
         dirname = './cutqc_data/%s/qc_%d/%s'%(circuit_name,max_subcircuit_qubit,eval_mode)
     elif field=='build':
-        dirname = './cutqc_data/%s/qc_%d/%s_%d_%d'%(circuit_name,max_subcircuit_qubit,eval_mode,qubit_limit,num_threads)
+        dirname = './cutqc_data/%s/qc_%d/%s_%d_%d'%(circuit_name,max_subcircuit_qubit,eval_mode,mem_limit,num_threads)
     elif field=='slurm':
         dirname = './slurm/%s/qc_%d'%(circuit_name,max_subcircuit_qubit)
     elif field=='runtime':
-        dirname = './runtime/%s/qc_%d/q_%d_%d'%(circuit_name,max_subcircuit_qubit,qubit_limit,num_threads)
+        dirname = './runtime/%s/qc_%d/q_%d_%d'%(circuit_name,max_subcircuit_qubit,mem_limit,num_threads)
     else:
         raise Exception('Illegal field = %s'%field)
     return dirname
