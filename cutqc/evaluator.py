@@ -154,17 +154,15 @@ def simulate_subcircuit(key,subcircuit_info,eval_mode):
     shots = subcircuit_info['shots']
     init = subcircuit_info['init']
     meas = subcircuit_info['meas']
-    num_effective_qubits = meas[0].count('comp')
+    subcircuit_results = {}
 
     assert shots>0
     if eval_mode=='runtime':
+        num_effective_qubits = meas[0].count('comp')
         uniform_p = 1/2**num_effective_qubits
-        simulation_results = {}
         for m in meas:
-            key = (circuit_name,subcircuit_idx,init,m)
             measured_prob = uniform_p
-            simulation_results[key] = measured_prob
-        return simulation_results
+            subcircuit_results[(subcircuit_idx,init,m)] = measured_prob
     else:
         if eval_mode=='sv':
             subcircuit_inst_prob = evaluate_circ(circuit=subcircuit,backend='statevector_simulator')
@@ -172,13 +170,11 @@ def simulate_subcircuit(key,subcircuit_info,eval_mode):
             subcircuit_inst_prob = evaluate_circ(circuit=subcircuit,backend='noiseless_qasm_simulator',options={'num_shots':shots})
         else:
             raise NotImplementedError
-        simulation_results = {}
         for m in meas:
-            key = (circuit_name,subcircuit_idx,init,m)
             measured_prob = measure_prob(unmeasured_prob=subcircuit_inst_prob,meas=m)
             measured_prob[abs(measured_prob) < tol] = 0.0
-            simulation_results[key] = measured_prob
-        return simulation_results
+            subcircuit_results[(subcircuit_idx,init,m)] = measured_prob
+    return circuit_name, subcircuit_results
 
 def measure_prob(unmeasured_prob,meas):
     if meas.count('comp')==len(meas):

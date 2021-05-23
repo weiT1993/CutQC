@@ -68,17 +68,21 @@ class CutQC:
 
         if len(cut_solution) > 0:
             source_folder = get_dirname(circuit_name=self.circuit_name,max_subcircuit_qubit=cut_solution['max_subcircuit_qubit'],
-            eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
+            eval_mode=None,num_threads=None,mem_limit=None,field='cutter')
             if os.path.exists(source_folder):
                 subprocess.run(['rm','-r',source_folder])
             os.makedirs(source_folder)
+            cut_solution['circuit_name'] = self.circuit_name
             pickle.dump(cut_solution, open('%s/cut_solution.pckl'%(source_folder),'wb'))
             self._generate_subcircuits(source_folder=source_folder,cut_solution=cut_solution)
+            return source_folder
+        else:
+            return None
     
-    def evaluate(self,circuits,eval_mode,qubit_limit,num_nodes,num_threads,ibmq):
+    def evaluate(self,source_folders,eval_mode,mem_limit,num_nodes,num_threads,ibmq):
         if self.verbose:
             print('*'*20,'evaluation mode = %s'%(eval_mode),'*'*20,flush=True)
-        self.circuits = circuits
+        self.source_folders = source_folders
         
         subprocess.run(['rm','./cutqc/build'])
         build_command = 'gcc ./cutqc/build.c -L /opt/intel/mkl/lib/intel64/ -I /opt/intel/mkl/include/ -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl -DMKL_ILP64 -m64 -o ./cutqc/build'
@@ -87,44 +91,32 @@ class CutQC:
         circ_dict, all_subcircuit_entries_sampled = self._gather_subcircuits(eval_mode=eval_mode)
         subcircuit_results = self._run_subcircuits(circ_dict=circ_dict,eval_mode=eval_mode)
         self._attribute_shots(subcircuit_results=subcircuit_results,eval_mode=eval_mode,all_subcircuit_entries_sampled=all_subcircuit_entries_sampled)
-        reconstructed_probs = self._build(eval_mode=eval_mode,qubit_limit=qubit_limit,num_nodes=num_nodes,num_threads=num_threads)
-        return reconstructed_probs
+        dest_folders = self._build(eval_mode=eval_mode,mem_limit=mem_limit,num_nodes=num_nodes,num_threads=num_threads)
+        return dest_folders
 
-    def verify(self, circuits, num_nodes, num_threads, qubit_limit, eval_mode):
+    def verify(self, source_folders, dest_folders):
         if self.verbose:
             print('*'*20,'Verify','*'*20,flush=True)
-        self.circuits = circuits
-        errors = {}
         row_format = '{:<20} {:<10} {:<30}'
         if self.verbose:
             print(row_format.format('Circuit Name','QPU','Error'),flush=True)
-        for circuit_name in self.circuits:
-            max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
-            
-            source_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
+        for source_folder, dest_folder in zip(source_folders,dest_folders):
             cut_solution = read_dict(filename='%s/cut_solution.pckl'%source_folder)
             circuit = cut_solution['circuit']
+            circuit_name = cut_solution['circuit_name']
             complete_path_map = cut_solution['complete_path_map']
             subcircuits = cut_solution['subcircuits']
+            max_subcircuit_qubit = cut_solution['max_subcircuit_qubit']
             summation_terms = pickle.load(open('%s/summation_terms.pckl'%source_folder,'rb'))
             smart_order = [x[0] for x in summation_terms[0]]
 
-            dest_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            num_threads=num_threads,eval_mode=eval_mode,qubit_limit=qubit_limit,field='build')
             build_output = read_dict(filename='%s/build_output.pckl'%dest_folder)
             reconstructed_prob = build_output['reconstructed_prob']
-            num_summation_terms_sampled = build_output['num_summation_terms_sampled']
-            num_summation_terms = build_output['num_summation_terms']
+            eval_mode = build_output['eval_mode']
             
             squared_error = verify(full_circuit=circuit,unordered=reconstructed_prob,complete_path_map=complete_path_map,subcircuits=subcircuits,smart_order=smart_order)
-            key = (circuit_name,eval_mode)
-            errors[key] = squared_error
             if self.verbose:
-                print(row_format.format(*key,'%.1e'%squared_error),flush=True)
-        if self.verbose:
-            print()
-        return errors
+                print(row_format.format(circuit_name,eval_mode,'%.1e'%squared_error),flush=True)
     
     def _generate_subcircuits(self,source_folder,cut_solution):
         '''
@@ -137,6 +129,12 @@ class CutQC:
 
         subcircuit_instances, subcircuit_instances_idx = generate_subcircuit_instances(subcircuits=subcircuits,complete_path_map=complete_path_map)
         summation_terms, subcircuit_entries, subcircuit_instance_attribution = generate_summation_terms(full_circuit=full_circuit,subcircuits=subcircuits,complete_path_map=complete_path_map,subcircuit_instances_idx=subcircuit_instances_idx,counter=counter)
+
+        pickle.dump(subcircuit_instances, open('%s/subcircuit_instances.pckl'%(source_folder),'wb'))
+        pickle.dump(subcircuit_instances_idx, open('%s/subcircuit_instances_idx.pckl'%(source_folder),'wb'))
+        pickle.dump(subcircuit_instance_attribution, open('%s/subcircuit_instance_attribution.pckl'%(source_folder),'wb'))
+        pickle.dump(summation_terms, open('%s/summation_terms.pckl'%(source_folder),'wb'))
+        pickle.dump(subcircuit_entries, open('%s/subcircuit_entries.pckl'%(source_folder),'wb'))
 
         if self.verbose:
             print('--> %s subcircuit_instances:'%self.circuit_name,flush=True)
@@ -184,31 +182,23 @@ class CutQC:
                     row.append('%d,%d'%(subcircuit_idx,subcircuit_entry_idx))
                 print(row_format.format(*row))
             print('... Total %d summations\n'%len(summation_terms),flush=True)
-        
-        pickle.dump(subcircuit_instances, open('%s/subcircuit_instances.pckl'%(source_folder),'wb'))
-        pickle.dump(subcircuit_instances_idx, open('%s/subcircuit_instances_idx.pckl'%(source_folder),'wb'))
-        pickle.dump(subcircuit_instance_attribution, open('%s/subcircuit_instance_attribution.pckl'%(source_folder),'wb'))
-        pickle.dump(summation_terms, open('%s/summation_terms.pckl'%(source_folder),'wb'))
-        pickle.dump(subcircuit_entries, open('%s/subcircuit_entries.pckl'%(source_folder),'wb'))
 
     def _gather_subcircuits(self,eval_mode):
         circ_dict = {}
         all_subcircuit_entries_sampled = {}
-        for circuit_name in self.circuits:
-            circuit = self.circuits[circuit_name]['circuit']
-            max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
-            max_cuts = self.circuits[circuit_name]['max_cuts']
-            num_subcircuits = self.circuits[circuit_name]['num_subcircuits']
-            source_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
-            eval_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            num_threads=None,eval_mode=eval_mode,qubit_limit=None,field='evaluator')
-            if os.path.exists(eval_folder):
-                subprocess.run(['rm','-r',eval_folder])
-            os.makedirs(eval_folder)
+        for source_folder in self.source_folders:
+            cut_solution = read_dict(filename='%s/cut_solution.pckl'%source_folder)
             subcircuit_instances = read_dict(filename='%s/subcircuit_instances.pckl'%source_folder)
             summation_terms = pickle.load(open('%s/summation_terms.pckl'%source_folder,'rb'))
             subcircuit_entries = read_dict(filename='%s/subcircuit_entries.pckl'%source_folder)
+            max_subcircuit_qubit = cut_solution['max_subcircuit_qubit']
+            circuit_name = cut_solution['circuit_name']
+            
+            eval_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
+            num_threads=None,eval_mode=eval_mode,mem_limit=None,field='evaluator')
+            if os.path.exists(eval_folder):
+                subprocess.run(['rm','-r',eval_folder])
+            os.makedirs(eval_folder)
             
             summation_terms_sampled = dummy_sample(summation_terms=summation_terms)
             subcircuit_entries_sampled = get_subcircuit_entries_sampled(summation_terms=summation_terms_sampled)
@@ -244,9 +234,12 @@ class CutQC:
             print('%d total'%len(circ_dict),flush=True)
         if eval_mode=='sv' or eval_mode=='qasm' or eval_mode=='runtime':
             subcircuit_results = {}
-            for key in tqdm(list(circ_dict.keys())):
-                subcircuit_result = simulate_subcircuit(key=key,subcircuit_info=circ_dict[key],eval_mode=eval_mode)
-                subcircuit_results.update(subcircuit_result)
+            for key in list(circ_dict.keys()):
+                circuit_name, subcircuit_result = simulate_subcircuit(key=key,subcircuit_info=circ_dict[key],eval_mode=eval_mode)
+                if circuit_name in subcircuit_results:
+                    subcircuit_results[circuit_name].update(subcircuit_result)
+                else:
+                    subcircuit_results[circuit_name] = subcircuit_result
         else:
             raise NotImplementedError
         return subcircuit_results
@@ -259,61 +252,58 @@ class CutQC:
         if self.verbose:
             print('--> Attribute shots',flush=True)
             print(row_format.format('circuit_name','subcircuit_idx','subcircuit_instance_idx','coefficient, subcircuit_entry_idx'),flush=True)
-        ctr = 0
-        subcircuit_entry_probs = {}
-        for key in tqdm(list(subcircuit_results.keys())):
-            ctr += 1
-            circuit_name, subcircuit_idx, init, meas = key
-            subcircuit_entries_sampled = all_subcircuit_entries_sampled[circuit_name]
-            subcircuit_instance_prob = subcircuit_results[key]
-            max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
-            source_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
+        for source_folder in self.source_folders:
+            ctr = 0
+            subcircuit_entry_probs = {}
+            cut_solution = read_dict(filename='%s/cut_solution.pckl'%source_folder)
             subcircuit_instances_idx = read_dict(filename='%s/subcircuit_instances_idx.pckl'%source_folder)
-            subcircuit_instance_idx = subcircuit_instances_idx[subcircuit_idx][(init,meas)]
-
             subcircuit_instance_attribution = read_dict(filename='%s/subcircuit_instance_attribution.pckl'%source_folder)
-            attributions = subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx]
-            if self.verbose and ctr<=10:
-                print(row_format.format(circuit_name,subcircuit_idx,subcircuit_instance_idx,str(attributions)[:30]),flush=True)
-
+            max_subcircuit_qubit = cut_solution['max_subcircuit_qubit']
+            circuit_name = cut_solution['circuit_name']
+            subcircuit_entries_sampled = all_subcircuit_entries_sampled[circuit_name]
             eval_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            eval_mode=eval_mode,num_threads=None,qubit_limit=None,field='evaluator')
+            eval_mode=eval_mode,num_threads=None,mem_limit=None,field='evaluator')
 
-            for item in attributions:
-                coefficient, subcircuit_entry_idx = item
-                if (subcircuit_idx,subcircuit_entry_idx) not in subcircuit_entries_sampled:
-                    continue
-                subcircuit_entry_prob_key = (eval_folder,subcircuit_idx,subcircuit_entry_idx)
-                if subcircuit_entry_prob_key in subcircuit_entry_probs:
-                    subcircuit_entry_probs[subcircuit_entry_prob_key] += coefficient*subcircuit_instance_prob
-                else:
-                    subcircuit_entry_probs[subcircuit_entry_prob_key] = coefficient*subcircuit_instance_prob
-        for subcircuit_entry_prob_key in subcircuit_entry_probs:
-            subcircuit_entry_prob = subcircuit_entry_probs[subcircuit_entry_prob_key]
-            eval_folder,subcircuit_idx,subcircuit_entry_idx = subcircuit_entry_prob_key
-            subcircuit_entry_file = open('%s/%d_%d.txt'%(eval_folder,subcircuit_idx,subcircuit_entry_idx),'w')
-            [subcircuit_entry_file.write('%e '%x) for x in subcircuit_entry_prob]
-            subcircuit_entry_file.close()
-        if self.verbose:
-            print('... Total %d subcircuit results attributed\n'%ctr,flush=True)
+            for key in subcircuit_results[circuit_name]:
+                ctr += 1
+                subcircuit_idx, init, meas = key
+                subcircuit_instance_idx = subcircuit_instances_idx[subcircuit_idx][(init,meas)]
+                subcircuit_instance_prob = subcircuit_results[circuit_name][key]
+                attributions = subcircuit_instance_attribution[subcircuit_idx][subcircuit_instance_idx]
+                if self.verbose and ctr<=10:
+                    print(row_format.format(circuit_name,subcircuit_idx,subcircuit_instance_idx,str(attributions)[:30]),flush=True)
+
+                for item in attributions:
+                    coefficient, subcircuit_entry_idx = item
+                    if (subcircuit_idx,subcircuit_entry_idx) not in subcircuit_entries_sampled:
+                        continue
+                    subcircuit_entry_prob_key = (eval_folder,subcircuit_idx,subcircuit_entry_idx)
+                    if subcircuit_entry_prob_key in subcircuit_entry_probs:
+                        subcircuit_entry_probs[subcircuit_entry_prob_key] += coefficient*subcircuit_instance_prob
+                    else:
+                        subcircuit_entry_probs[subcircuit_entry_prob_key] = coefficient*subcircuit_instance_prob
+            for subcircuit_entry_prob_key in subcircuit_entry_probs:
+                subcircuit_entry_prob = subcircuit_entry_probs[subcircuit_entry_prob_key]
+                eval_folder,subcircuit_idx,subcircuit_entry_idx = subcircuit_entry_prob_key
+                subcircuit_entry_file = open('%s/%d_%d.txt'%(eval_folder,subcircuit_idx,subcircuit_entry_idx),'w')
+                [subcircuit_entry_file.write('%e '%x) for x in subcircuit_entry_prob]
+                subcircuit_entry_file.close()
+            if self.verbose:
+                print('... Total %d subcircuit results attributed\n'%ctr,flush=True)
     
-    def _build(self, eval_mode, qubit_limit, num_nodes, num_threads):
+    def _build(self, eval_mode, mem_limit, num_nodes, num_threads):
         if self.verbose:
             print('--> Build')
             row_format = '{:<15} {:<20} {:<30}'
             print(row_format.format('circuit_name','summation_term_idx','summation_term'))
-        reconstructed_probs = {}
-        for circuit_name in self.circuits:
-            circuit = self.circuits[circuit_name]['circuit']
-            max_subcircuit_qubit = self.circuits[circuit_name]['max_subcircuit_qubit']
-            max_cuts = self.circuits[circuit_name]['max_cuts']
-            num_subcircuits = self.circuits[circuit_name]['num_subcircuits']
-            source_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            eval_mode=None,num_threads=None,qubit_limit=None,field='cutter')
+        dest_folders = []
+        for source_folder in self.source_folders:
+            cut_solution = read_dict(filename='%s/cut_solution.pckl'%source_folder)
+            max_subcircuit_qubit = cut_solution['max_subcircuit_qubit']
+            circuit_name = cut_solution['circuit_name']
             summation_terms = pickle.load(open('%s/summation_terms.pckl'%source_folder,'rb'))
             eval_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            eval_mode=eval_mode,num_threads=None,qubit_limit=None,field='evaluator')
+            eval_mode=eval_mode,num_threads=None,mem_limit=None,field='evaluator')
             summation_terms_sampled = pickle.load(open('%s/summation_terms_sampled.pckl'%eval_folder,'rb'))
             
             if self.verbose:
@@ -326,7 +316,8 @@ class CutQC:
             counter = cut_solution['counter']
 
             dest_folder = get_dirname(circuit_name=circuit_name,max_subcircuit_qubit=max_subcircuit_qubit,
-            eval_mode=eval_mode,num_threads=num_threads,qubit_limit=qubit_limit,field='build')
+            eval_mode=eval_mode,num_threads=num_threads,mem_limit=mem_limit,field='build')
+            dest_folders.append(dest_folder)
             if os.path.exists(dest_folder):
                 subprocess.run(['rm','-r',dest_folder])
             os.makedirs(dest_folder)
@@ -378,9 +369,13 @@ class CutQC:
                 else:
                     reconstructed_prob = rank_reconstructed_prob
             elapsed = np.array(elapsed)
-            reconstructed_probs[circuit_name] = reconstructed_prob
             if self.verbose:
                 print('%s _build took %.3e seconds'%(circuit_name,np.mean(elapsed)),flush=True)
                 print('Sampled %d/%d summation terms'%(len(summation_terms_sampled),len(summation_terms)))
-            pickle.dump({'reconstructed_prob':reconstructed_prob,'num_summation_terms_sampled':len(summation_terms_sampled),'num_summation_terms':len(summation_terms)},open('%s/build_output.pckl'%(dest_folder),'wb'))
-        return reconstructed_probs
+            pickle.dump(
+                {'reconstructed_prob':reconstructed_prob,
+                'eval_mode':eval_mode,
+                'num_summation_terms_sampled':len(summation_terms_sampled),
+                'num_summation_terms':len(summation_terms)
+                },open('%s/build_output.pckl'%(dest_folder),'wb'))
+        return dest_folders
