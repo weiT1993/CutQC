@@ -43,5 +43,4 @@ Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi
 Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
 
 ## Coming soon
-- [ ] Run on IBMQ backends
-- [ ] Multi-node classical post-processing tools to be used on HPC clusters
+- [ ] Multi-node classical post-processing tools for HPC clusters
