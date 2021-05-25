@@ -18,12 +18,14 @@ conda install gurobi
 ```
 3. Install the latest [Qiskit helper functions](https://github.com/weiT1993/qiskit_helper_functions).
 ```
+git clone https://github.com/weiT1993/qiskit_helper_functions.git
+cd qiskit_helper_functions
 pip install .
 ```
 4. Install [Intel oneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html).
 Add MKL to path (file location may vary depending on installation):
 ```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/mkl/lib/intel64
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/oneapi/mkl/latest/lib/intel64
 ```
 Note that the installations have only been tested on Linux.
 Windows/MacOS may require different setups and support is currently not provided.
