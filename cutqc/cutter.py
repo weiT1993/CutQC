@@ -102,20 +102,28 @@ class MIP_Model(object):
             subcircuit_d = self.model.addVar(lb=0.1, ub=self.max_subcircuit_qubit, vtype=gp.GRB.INTEGER, name='subcircuit_d_%d'%subcircuit)
             self.model.addConstr(subcircuit_d == subcircuit_original_qubit + subcircuit_rho_qubits)
 
-            # subcircuit_size = self.model.addVar(lb=0.1, ub=int(self.n_vertices/2), vtype=GRB.INTEGER, name='subcircuit_size_%d'%subcircuit)
-            # self.model.addConstr(subcircuit_size == quicksum([self.vertex_var[subcircuit][v] for v in range(self.n_vertices)]))
+            subcircuit_size = self.model.addVar(lb=0.1, ub=int(self.n_vertices/1.2), vtype=gp.GRB.INTEGER, name='subcircuit_size_%d'%subcircuit)
+            self.model.addConstr(subcircuit_size == gp.quicksum([self.vertex_var[subcircuit][v] for v in range(self.n_vertices)]))
 
             num_effective_qubits.append(subcircuit_d-subcircuit_O_qubits)
             
-            if subcircuit>0:
-                lb = 0
-                ub = self.num_qubits+2*20
-                ptx, ptf = self.pwl_exp(lb=lb,ub=ub,base=2,integer_only=True)
-                build_cost_exponent = self.model.addVar(lb=lb, ub=ub, vtype=gp.GRB.INTEGER, name='build_cost_exponent_%d'%subcircuit)
-                self.model.addConstr(build_cost_exponent == gp.quicksum(num_effective_qubits)+2*self.num_cuts)
+            # if subcircuit>0:
+            #     lb = 0
+            #     ub = self.num_qubits+2*20
+            #     ptx, ptf = self.pwl_exp(lb=lb,ub=ub,base=2,integer_only=True)
+            #     build_cost_exponent = self.model.addVar(lb=lb, ub=ub, vtype=gp.GRB.INTEGER, name='build_cost_exponent_%d'%subcircuit)
+            #     self.model.addConstr(build_cost_exponent == gp.quicksum(num_effective_qubits)+2*self.num_cuts)
             #     self.model.setPWLObj(build_cost_exponent, ptx, ptf)
+            
+            # Number of subcircuits = 4^rho*3^O = e^{ln(4)*rho + ln(3)*O}
+            lb = 0
+            ub = np.log(4)*self.max_cuts*2
+            ptx, ptf = self.pwl_exp(lb=lb,ub=ub,base=math.e,integer_only=False)
+            num_subcircuit_variations_exponent = self.model.addVar(lb=lb, ub=ub, vtype=gp.GRB.CONTINUOUS, name='num_subcircuits_exponent_%d'%subcircuit)
+            self.model.addConstr(num_subcircuit_variations_exponent == np.log(4)*subcircuit_rho_qubits+np.log(3)*subcircuit_O_qubits)
+            self.model.setPWLObj(num_subcircuit_variations_exponent, ptx, ptf)
 
-        self.model.setObjective(self.num_cuts,gp.GRB.MINIMIZE)
+        # self.model.setObjective(self.num_cuts,gp.GRB.MINIMIZE)
         self.model.update()
     
     def pwl_exp(self, lb, ub, base, integer_only):
@@ -385,7 +393,7 @@ def cost_estimate(counter):
         accumulated_kron_len *= 2**effective
         reconstruction_cost += accumulated_kron_len
     reconstruction_cost *= 4**num_cuts
-    return reconstruction_cost
+    return reconstruction_cost, num_cuts
 
 def get_pairs(complete_path_map):
     O_rho_pairs = []
@@ -450,7 +458,8 @@ def find_cuts(circuit, max_subcircuit_qubit, max_cuts, num_subcircuits, verbose)
             O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
             counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
 
-            reconstruction_cost = cost_estimate(counter=counter)
+            reconstruction_cost, num_cuts = cost_estimate(counter=counter)
+            assert num_cuts==len(positions)
 
             if reconstruction_cost < min_postprocessing_cost:
                 min_postprocessing_cost = reconstruction_cost
@@ -460,7 +469,7 @@ def find_cuts(circuit, max_subcircuit_qubit, max_cuts, num_subcircuits, verbose)
                 'max_subcircuit_qubit':max_subcircuit_qubit,
                 'subcircuits':subcircuits,
                 'complete_path_map':complete_path_map,
-                'positions':positions,
+                'num_cuts':num_cuts,
                 'counter':counter}
     if verbose and len(cut_solution)>0:
         print('-'*20)
@@ -469,14 +478,14 @@ def find_cuts(circuit, max_subcircuit_qubit, max_cuts, num_subcircuits, verbose)
         subcircuits=cut_solution['subcircuits'],
         counter=cut_solution['counter'], reconstruction_cost=min_postprocessing_cost)
 
-        print('Model objective value = %.2e'%(best_mip_model.objective))
-        print('MIP runtime:', best_mip_model.runtime)
+        print('Model objective value = %.2e'%(best_mip_model.objective),flush=True)
+        print('MIP runtime:', best_mip_model.runtime,flush=True)
 
         if (best_mip_model.optimal):
-            print('OPTIMAL, MIP gap =',best_mip_model.mip_gap)
+            print('OPTIMAL, MIP gap =',best_mip_model.mip_gap,flush=True)
         else:
-            print('NOT OPTIMAL, MIP gap =',best_mip_model.mip_gap)
-        print('-'*20)
+            print('NOT OPTIMAL, MIP gap =',best_mip_model.mip_gap,flush=True)
+        print('-'*20,flush=True)
     return cut_solution
 
 def cut_circuit(circuit, subcircuit_vertices, verbose):
@@ -495,7 +504,7 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
     subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=subcircuits, circuit=circuit)
     O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
     counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
-    reconstruction_cost = cost_estimate(counter=counter)
+    reconstruction_cost, num_cuts = cost_estimate(counter=counter)
     max_subcircuit_qubit = max([subcircuit.width() for subcircuit in subcircuits])
 
     if verbose:
@@ -511,6 +520,7 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
         'max_subcircuit_qubit':max_subcircuit_qubit,
         'subcircuits':subcircuits,
         'complete_path_map':complete_path_map,
+        'num_cuts':num_cuts,
         'counter':counter}
     return cut_solution
 
