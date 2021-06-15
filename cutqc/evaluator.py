@@ -128,6 +128,7 @@ def get_one_subcircuit_instances(subcircuit, combinations):
             else:
                 raise Exception('Illegal measurement basis:',x)
         subcircuit_inst = dag_to_circuit(subcircuit_dag)
+        # NOTE: hardcoded subcircuit num_shots
         num_shots = max(8192,int(2**subcircuit_inst.num_qubits))
         num_shots = min(8192*10,num_shots)
         mutated_meas = mutate_measurement_basis(meas)

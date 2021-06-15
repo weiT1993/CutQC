@@ -1,5 +1,6 @@
 from qiskit.circuit import QuantumCircuit
 from qiskit.quantum_info import random_unitary
+import pickle
 
 from qiskit_helper_functions.non_ibmq_functions import generate_circ
 
@@ -49,13 +50,13 @@ if __name__ == '__main__':
     # Make a circuit
     circuit = make_QV()
     
-    cutqc = CutQC(circuit_name='QV_%d'%circuit.num_qubits,circuit=circuit,verbose=True)
+    cutqc = CutQC(circuit_name='QV_%d'%circuit.num_qubits,circuit=circuit,verbose=False)
     
     # Option 1: automatic MIP solver
-    source_folder = cutqc.cut(max_subcircuit_qubit=8, max_subcircuit_size=25, max_subcircuit_cuts=5)
+    source_folder = cutqc.cut(max_subcircuit_width=8,max_subcircuit_cuts=6,max_subcircuit_size=25)
     # Option 2: manually specify subcircuit partitions
     # source_folder = cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
     
     # Evaluate and verify CutQC results
-    # dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='qasm',mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
-    # cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)
+    dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='qasm',mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
+    verification_metrics = cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)
