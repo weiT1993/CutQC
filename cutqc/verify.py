@@ -5,6 +5,7 @@ import numpy as np
 from qiskit.quantum_info import Statevector
 
 from qiskit_helper_functions.non_ibmq_functions import evaluate_circ
+from qiskit_helper_functions.metrics import nearest_probability_distribution
 
 def get_heavy_strings(model_circuit):
     zero = Statevector.from_label('0' * 8)
@@ -22,6 +23,7 @@ def get_heavy_strings(model_circuit):
 
 def verify(full_circuit,unordered,complete_path_map,subcircuits,smart_order):
     ground_truth = evaluate_circ(circuit=full_circuit,backend='statevector_simulator')
+    unordered, _ = nearest_probability_distribution(quasiprobability=unordered)
     subcircuit_out_qubits = {subcircuit_idx:[] for subcircuit_idx in smart_order}
     for input_qubit in complete_path_map:
         path = complete_path_map[input_qubit]
