@@ -118,12 +118,12 @@ class MIP_Model(object):
         Symmetry-breaking constraints
         Force small-numbered vertices into small-numbered subcircuits:
             v0: in subcircuit 0
-            v1: in c0 or c1
-            v2: in c0 or c1 or c2
-            ....
+            v1: in subcircuit_0 or subcircuit_1
+            v2: in subcircuit_0 or subcircuit_1 or subcircuit_2
+            ...
         '''
         for vertex in range(self.num_subcircuit):
-            self.model.addConstr(gp.quicksum([self.vertex_var[subcircuit][vertex] for subcircuit in range(vertex+1,self.num_subcircuit)]) == 0)
+            self.model.addConstr(gp.quicksum([self.vertex_var[subcircuit][vertex] for subcircuit in range(vertex+1)]) == 1)
         
         '''
         Compute number of cuts

@@ -6,7 +6,7 @@ from qiskit.circuit.library.standard_gates import HGate, SGate, SdgGate, XGate
 
 from qiskit_helper_functions.non_ibmq_functions import read_dict, find_process_jobs, evaluate_circ
 
-def generate_subcircuit_instances(subcircuits,complete_path_map):
+def generate_subcircuit_instances(subcircuits, complete_path_map, num_shots_fn):
     '''
     Generate subcircuit instances with different init, meas
     subcircuit_instances[subcircuit_idx][subcircuit_instance_idx] = circuit, init, meas, shots
@@ -17,7 +17,8 @@ def generate_subcircuit_instances(subcircuits,complete_path_map):
     for subcircuit_idx, subcircuit in enumerate(subcircuits):
         O_qubits, rho_qubits = find_subcircuit_O_rho_qubits(complete_path_map=complete_path_map,subcircuit_idx=subcircuit_idx)
         combinations = find_init_meas_combinations(O_qubits=O_qubits, rho_qubits=rho_qubits, qubits=subcircuit.qubits)
-        subcircuit_instances[subcircuit_idx], subcircuit_instances_idx[subcircuit_idx] = get_one_subcircuit_instances(subcircuit=subcircuit, combinations=combinations)
+        num_shots = num_shots_fn(circuit=subcircuit)
+        subcircuit_instances[subcircuit_idx], subcircuit_instances_idx[subcircuit_idx] = get_one_subcircuit_instances(subcircuit=subcircuit, combinations=combinations, num_shots=num_shots)
     return subcircuit_instances, subcircuit_instances_idx
 
 def find_subcircuit_O_rho_qubits(complete_path_map,subcircuit_idx):
@@ -83,7 +84,7 @@ def mutate_measurement_basis(meas):
         mutated_meas = list(itertools.product(*mutated_meas))
         return mutated_meas
 
-def get_one_subcircuit_instances(subcircuit, combinations):
+def get_one_subcircuit_instances(subcircuit, combinations, num_shots):
     '''
     Modify the different init, meas for a given subcircuit
     Returns:
@@ -128,9 +129,6 @@ def get_one_subcircuit_instances(subcircuit, combinations):
             else:
                 raise Exception('Illegal measurement basis:',x)
         subcircuit_inst = dag_to_circuit(subcircuit_dag)
-        # NOTE: hardcoded subcircuit num_shots
-        num_shots = max(8192,int(2**subcircuit_inst.num_qubits))
-        num_shots = min(8192*10,num_shots)
         mutated_meas = mutate_measurement_basis(meas)
         for idx, meas in enumerate(mutated_meas):
             subcircuit_instance_idx = len(subcircuit_instances)

@@ -5,25 +5,15 @@ import numpy as np
 from qiskit.quantum_info import Statevector
 
 from qiskit_helper_functions.non_ibmq_functions import evaluate_circ
-from qiskit_helper_functions.metrics import nearest_probability_distribution
-
-def get_heavy_strings(model_circuit):
-    zero = Statevector.from_label('0' * 8)
-    sv = zero.evolve(model_circuit)
-    probs_ideal = sv.probabilities_dict()
-
-    prob_median = float(np.real(np.median(list(probs_ideal.values()))))
-    heavy_strings = list(
-        filter(
-            lambda x: probs_ideal[x] > prob_median,
-            list(probs_ideal.keys()),
-        )
-    )
-    return heavy_strings
+from qiskit_helper_functions.conversions import quasi_to_real
+from qiskit_helper_functions.metrics import chi2_distance, MSE, MAPE, cross_entropy, HOP
 
 def verify(full_circuit,unordered,complete_path_map,subcircuits,smart_order):
     ground_truth = evaluate_circ(circuit=full_circuit,backend='statevector_simulator')
-    unordered, _ = nearest_probability_distribution(quasiprobability=unordered)
+
+    '''
+    Reorder the probability distribution
+    '''
     subcircuit_out_qubits = {subcircuit_idx:[] for subcircuit_idx in smart_order}
     for input_qubit in complete_path_map:
         path = complete_path_map[input_qubit]
@@ -38,8 +28,6 @@ def verify(full_circuit,unordered,complete_path_map,subcircuits,smart_order):
     for subcircuit_idx in smart_order:
         unordered_qubit += subcircuit_out_qubits[subcircuit_idx]
     # print('CutQC out qubits:',unordered_qubit)
-    squared_error = 0
-    absolute_percentage_error = 0
     reconstructed_output = []
     for unordered_state, unordered_p in enumerate(unordered):
         bin_unordered_state = bin(unordered_state)[2:].zfill(full_circuit.num_qubits)
@@ -47,22 +35,23 @@ def verify(full_circuit,unordered,complete_path_map,subcircuits,smart_order):
         ordered_bin_state = ''.join([str(x) for x in ordered_bin_state])
         ordered_state = int(ordered_bin_state,2)
         ground_p = ground_truth[ordered_state]
-        squared_error += np.power(ground_p-unordered_p,2)
-        absolute_percentage_error += abs((ground_p-unordered_p)/ground_p)*100
         reconstructed_output.append(unordered_p)
     reconstructed_output = np.array(reconstructed_output)
 
-    mse = squared_error/len(unordered)
-    
-    mape = absolute_percentage_error/len(unordered)
-    
-    heavy_strings = get_heavy_strings(full_circuit)
-    hop = 0
-    for heavy_string in heavy_strings:
-        heavy_state = int(heavy_string,2)
-        hop += reconstructed_output[heavy_state]
-    
-    metrics = {'Mean Squared Error':mse,
-    'Mean Absolute Percentage Error':mape,
-    'HOP':hop}
+    metrics = {}
+    for quasi_conversion_mode in ['nearest','naive']:
+        real_probability = quasi_to_real(quasiprobability=reconstructed_output,mode=quasi_conversion_mode)
+        
+        chi2 = chi2_distance(target=ground_truth,obs=real_probability)
+        mse = MSE(target=ground_truth,obs=real_probability)
+        mape = MAPE(target=ground_truth,obs=real_probability)
+        ce = cross_entropy(target=ground_truth,obs=real_probability)
+        hop = HOP(target=ground_truth,obs=real_probability)
+        metrics[quasi_conversion_mode] = {
+            'chi2':chi2,
+            'Mean Squared Error':mse,
+            'Mean Absolute Percentage Error':mape,
+            'Cross Entropy':ce,
+            'HOP':hop
+            }
     return reconstructed_output, metrics

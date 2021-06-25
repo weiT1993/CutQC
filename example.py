@@ -50,13 +50,17 @@ if __name__ == '__main__':
     # Make a circuit
     circuit = make_QV()
     
-    cutqc = CutQC(circuit_name='QV_%d'%circuit.num_qubits,circuit=circuit,verbose=False)
-    
-    # Option 1: automatic MIP solver
-    source_folder = cutqc.cut(max_subcircuit_width=8,max_subcircuit_cuts=6,max_subcircuit_size=25)
-    # Option 2: manually specify subcircuit partitions
-    # source_folder = cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
-    
-    # Evaluate and verify CutQC results
-    dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='qasm',mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
-    verification_metrics = cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)
+    for constant_shots in [1024,8192,65536]:
+        def constant_shots_fn(circuit):
+            return constant_shots
+        for trial in range(10):
+            cutqc = CutQC(circuit_name='largest_QV_%d_shots_trial_%d'%(constant_shots,trial),circuit=circuit,verbose=False)
+            
+            # Option 1: automatic MIP solver
+            source_folder = cutqc.cut(num_shots_fn=constant_shots_fn,max_subcircuit_width=8,max_subcircuit_cuts=6,max_subcircuit_size=25)
+            # Option 2: manually specify subcircuit partitions
+            # source_folder = cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
+            
+            # Evaluate and verify CutQC results
+            dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='qasm',mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
+            cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)
