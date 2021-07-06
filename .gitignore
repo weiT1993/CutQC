@@ -8,6 +8,7 @@ gurobi.log
 ._*
 *.pyc
 *.npy
+*.pdf
 
 *.txt
 !*_logs.txt
