@@ -7,7 +7,7 @@ from qiskit import QuantumCircuit, QuantumRegister
 
 class MIP_Model(object):
     def __init__(self, n_vertices, edges, vertex_ids, id_vertices, num_subcircuit,
-    max_subcircuit_width, max_subcircuit_cuts, max_subcircuit_size, num_qubits, max_cuts):
+    max_subcircuit_width, max_subcircuit_cuts, max_subcircuit_size, num_qubits, max_cuts, quantum_cost_weight):
         self.check_graph(n_vertices, edges)
         self.n_vertices = n_vertices
         self.edges = edges
@@ -20,6 +20,8 @@ class MIP_Model(object):
         self.max_subcircuit_size = max_subcircuit_size
         self.num_qubits = num_qubits
         self.max_cuts = max_cuts
+        self.quantum_cost_weight = quantum_cost_weight
+        assert self.quantum_cost_weight>=0 and self.quantum_cost_weight<=1
 
         '''
         Count the number of input qubits directly connected to each node
@@ -170,30 +172,30 @@ class MIP_Model(object):
             if subcircuit>0:
                 ptx, ptf = self.pwl_exp(lb=int(self.subcircuit_counter[subcircuit]['build_cost_exponent'].lb),
                 ub=int(self.subcircuit_counter[subcircuit]['build_cost_exponent'].ub),
-                base=2,integer_only=True)
+                base=2,coefficient=1-self.quantum_cost_weight,integer_only=True)
                 self.model.addConstr(self.subcircuit_counter[subcircuit]['build_cost_exponent'] == 
                 gp.quicksum(num_effective_qubits)+2*self.num_cuts)
-                # self.model.setPWLObj(build_cost_exponent, ptx, ptf)
+                self.model.setPWLObj(self.subcircuit_counter[subcircuit]['build_cost_exponent'], ptx, ptf)
             
             self.model.addConstr(self.subcircuit_counter[subcircuit]['num_instances_exponent'] == 
             np.log(4)*self.subcircuit_counter[subcircuit]['rho'] + np.log(3)*self.subcircuit_counter[subcircuit]['O'])
             ptx, ptf = self.pwl_exp(lb=self.subcircuit_counter[subcircuit]['num_instances_exponent'].lb,
             ub=self.subcircuit_counter[subcircuit]['num_instances_exponent'].ub,
-            base=math.e,integer_only=False)
+            base=math.e,coefficient=self.quantum_cost_weight,integer_only=False)
             self.model.setPWLObj(self.subcircuit_counter[subcircuit]['num_instances_exponent'], ptx, ptf)
 
         # self.model.setObjective(self.num_cuts,gp.GRB.MINIMIZE)
         self.model.update()
     
-    def pwl_exp(self, lb, ub, base, integer_only):
-        # Piecewise linear approximation of base**x
+    def pwl_exp(self, lb, ub, base, coefficient, integer_only):
+        # Piecewise linear approximation of coefficient*base**x
         ptx = []
         ptf = []
 
         x_range = range(lb,ub+1) if integer_only else np.linspace(lb,ub,200)
         # print('x_range : {}, integer_only : {}'.format(x_range,integer_only))
         for x in x_range:
-            y = base**x
+            y = coefficient*base**x
             ptx.append(x)
             ptf.append(y)
         return ptx, ptf
@@ -480,7 +482,7 @@ def get_counter(subcircuits, O_rho_pairs):
 
 def find_cuts(circuit,
 max_subcircuit_width,
-max_cuts, num_subcircuits, max_subcircuit_cuts, max_subcircuit_size,
+max_cuts, num_subcircuits, max_subcircuit_cuts, max_subcircuit_size, quantum_cost_weight,
 verbose):
     stripped_circ = circuit_stripping(circuit=circuit)
     n_vertices, edges, vertex_ids, id_vertices = read_circ(circuit=stripped_circ)
@@ -505,7 +507,8 @@ verbose):
                     max_subcircuit_cuts=max_subcircuit_cuts,
                     max_subcircuit_size=max_subcircuit_size,
                     num_qubits=num_qubits,
-                    max_cuts=max_cuts)
+                    max_cuts=max_cuts,
+                    quantum_cost_weight=quantum_cost_weight)
 
         mip_model = MIP_Model(**kwargs)
         feasible = mip_model.solve(model_cutoff=min_cost)

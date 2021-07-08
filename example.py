@@ -58,10 +58,10 @@ if __name__ == '__main__':
     cutqc = CutQC(circuit_name='largest_QV_%d_shots'%(constant_shots),circuit=circuit,verbose=True)
     
     # Option 1: automatic MIP solver
-    source_folder = cutqc.cut(max_subcircuit_width=8,max_subcircuit_cuts=6,max_subcircuit_size=30)
+    cutqc.cut(max_subcircuit_width=8,max_subcircuit_cuts=6,max_subcircuit_size=30,quantum_cost_weight=1.0)
     # Option 2: manually specify subcircuit partitions
     # source_folder = cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
     
     # Evaluate and verify CutQC results
-    dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
-    cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)
+    # dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
+    # cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)
