@@ -11,7 +11,7 @@
 #include <immintrin.h>
 #include "omp.h"
 
-float* build(char* eval_folder, int reconstruction_len, int num_subcircuits, int* subcircuit_indices, int* subcircuit_entry_indices, long long int* subcircuit_prob_lengths);
+float* build(char* data_folder, int reconstruction_len, int num_subcircuits, int* subcircuit_indices, int* subcircuit_entry_indices, long long int* subcircuit_prob_lengths);
 void print_float_arr(float *arr, long long int num_elements);
 void print_int_arr(int *arr, int num_elements);
 float print_log(double log_time, double elapsed_time, int num_finished_jobs, int num_total_jobs, double log_frequency, int rank);
@@ -19,16 +19,15 @@ double get_sec();
 
 int main(int argc, char** argv) {
     int rank = atoi(argv[1]);
-    char *eval_folder = argv[2];
-    char *dest_folder = argv[3];
-    long long int reconstruction_len = atoi(argv[4]);
-    int num_cuts = atoi(argv[5]);
-    int num_summation_terms = atoi(argv[6]);
-    int num_subcircuits = atoi(argv[7]);
-    int num_samples = atoi(argv[8]);
+    char *data_folder = argv[2];
+    long long int reconstruction_len = atoi(argv[3]);
+    int num_cuts = atoi(argv[4]);
+    int num_summation_terms = atoi(argv[5]);
+    int num_subcircuits = atoi(argv[6]);
+    int num_samples = atoi(argv[7]);
     
     char *build_command_file = malloc(256*sizeof(char));
-    sprintf(build_command_file, "%s/build_command_%d.txt", dest_folder, rank);
+    sprintf(build_command_file, "%s/build_command_%d.txt", data_folder, rank);
     FILE* build_command_fptr = fopen(build_command_file, "r");
 
     int summation_term_ctr;
@@ -50,7 +49,7 @@ int main(int argc, char** argv) {
             fscanf(build_command_fptr,"%d ",&subcircuit_entry_indices[subcircuit_ctr]);
             fscanf(build_command_fptr,"%lld ",&subcircuit_prob_lengths[subcircuit_ctr]);
         }
-        float* summation_term = build(eval_folder, reconstruction_len, num_subcircuits, subcircuit_indices, subcircuit_entry_indices, subcircuit_prob_lengths);
+        float* summation_term = build(data_folder, reconstruction_len, num_subcircuits, subcircuit_indices, subcircuit_entry_indices, subcircuit_prob_lengths);
         cblas_sscal(reconstruction_len, frequency/sampling_prob/num_samples, summation_term, 1);
         vsAdd(reconstruction_len, reconstructed_prob, summation_term, reconstructed_prob);
         double build_time = get_sec() - build_begin;
@@ -69,7 +68,7 @@ int main(int argc, char** argv) {
     free(build_command_file);
 
     char *build_file = malloc(256*sizeof(char));
-    sprintf(build_file, "%s/build_%d.txt", dest_folder, rank);
+    sprintf(build_file, "%s/build_%d.txt", data_folder, rank);
     FILE *build_fptr = fopen(build_file, "w");
     long long int state_ctr;
     for (state_ctr=0;state_ctr<reconstruction_len;state_ctr++) {
@@ -79,18 +78,11 @@ int main(int argc, char** argv) {
     fclose(build_fptr);
     free(build_file);
 
-    char *summary_file = malloc(256*sizeof(char));
-    sprintf(summary_file, "%s/rank_%d_summary.txt", dest_folder, rank);
-    FILE *summary_fptr = fopen(summary_file, "a");
-    fprintf(summary_fptr,"Total build time = %e\n",total_build_time);
-    fprintf(summary_fptr,"DONE\n");
-    fclose(summary_fptr);
-    free(summary_file);
     free(reconstructed_prob);
     return 0;
 }
 
-float* build(char* eval_folder, int reconstruction_len, int num_subcircuits, int* subcircuit_indices, int* subcircuit_entry_indices, long long int* subcircuit_prob_lengths) {
+float* build(char* data_folder, int reconstruction_len, int num_subcircuits, int* subcircuit_indices, int* subcircuit_entry_indices, long long int* subcircuit_prob_lengths) {
     // Calculate Kronecker product for one summation_term
     // cblas_sger parameters:
     MKL_INT incx, incy;
@@ -108,7 +100,7 @@ float* build(char* eval_folder, int reconstruction_len, int num_subcircuits, int
         long long int subcircuit_prob_length = subcircuit_prob_lengths[subcircuit_ctr];
 
         char *subcircuit_entry_file = malloc(256*sizeof(char));
-        sprintf(subcircuit_entry_file, "%s/%d_%d.txt", eval_folder, subcircuit_idx, subcircuit_entry_idx);
+        sprintf(subcircuit_entry_file, "%s/%d_%d.txt", data_folder, subcircuit_idx, subcircuit_entry_idx);
         FILE* subcircuit_entry_fptr = fopen(subcircuit_entry_file, "r");
 
         if (summation_term_accumulated_len==0) {

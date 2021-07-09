@@ -47,21 +47,46 @@ def make_QV():
     return largest
 
 if __name__ == '__main__':
-    # Make a circuit
-    circuit = make_QV()
+    # Make circuit(s)
+    circuit_1 = {
+        'name':'largest_QV',
+        'circuit':make_QV(),
+        'kwargs':dict(
+            max_subcircuit_width=8,
+            max_subcircuit_cuts=6,
+            max_subcircuit_size=30,
+            quantum_cost_weight=1.0,
+            max_cuts=10,
+            num_subcircuits=[2,3]
+        )
+    } # Option 1: automatic MIP solver
+    circuit_2 = {
+        'name':'largest_QV_manual_cuts',
+        'circuit':make_QV(),
+        'kwargs':dict(
+            subcircuit_vertices=[range(26),[26,27,28],[29,30,31]]
+        )
+    } # Option 2: manually specify subcircuit partitions
+    circuit_3 = {
+        'name':'BV',
+        'circuit':generate_circ(full_circ_size=8,circuit_type='bv'),
+        'kwargs':dict(
+            max_subcircuit_width=5,
+            max_subcircuit_cuts=3,
+            max_subcircuit_size=10,
+            quantum_cost_weight=1.0,
+            max_cuts=10,
+            num_subcircuits=[2,3]
+        )
+    }
     
+    # Call CutQC
+    cutqc = CutQC(circuits=[circuit_3],verbose=True)
+    cutqc.cut()
+    
+    # Evaluate and verify CutQC results
     constant_shots = 1024
     def constant_shots_fn(circuit):
         return constant_shots
-    
-    # Instantiate a CutQC class
-    cutqc = CutQC(circuit_name='largest_QV_%d_shots'%(constant_shots),circuit=circuit,verbose=True)
-    
-    # Option 1: automatic MIP solver
-    cutqc.cut(max_subcircuit_width=8,max_subcircuit_cuts=6,max_subcircuit_size=30,quantum_cost_weight=1.0)
-    # Option 2: manually specify subcircuit partitions
-    # source_folder = cutqc.cut(subcircuit_vertices=[range(26),[26,27,28],[29,30,31]])
-    
-    # Evaluate and verify CutQC results
-    # dest_folders = cutqc.evaluate(source_folders=[source_folder],eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
-    # cutqc.verify(source_folders=[source_folder],dest_folders=dest_folders)
+    cutqc.evaluate(eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
+    cutqc.verify()
