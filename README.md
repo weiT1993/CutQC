@@ -20,13 +20,6 @@ conda install gurobi
 ```
 pip install .
 ```
-4. Install [Intel oneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi/base-toolkit/download.html).
-Add MKL to path (file location may vary depending on installation):
-```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/intel/mkl/lib/intel64
-```
-Note that the installations have only been tested on Linux.
-Windows/MacOS may require different setups and support is currently not provided.
 
 ## Example Code
 For example, use CutQC to cut a 3*5 Supremacy circuit and run on a 10-qubit quantum computer
@@ -46,4 +39,4 @@ Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarific
 - [ ] Multi-node classical post-processing tools for HPC clusters
 
 ## TODO
-- [ ] GPU?
+- [ ] Port to GPU
