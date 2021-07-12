@@ -28,14 +28,14 @@ def verify(full_circuit,unordered,complete_path_map,subcircuits,smart_order):
     for subcircuit_idx in smart_order:
         unordered_qubit += subcircuit_out_qubits[subcircuit_idx]
     # print('CutQC out qubits:',unordered_qubit)
-    reconstructed_output = []
+    reconstructed_output = np.zeros(len(unordered))
     for unordered_state, unordered_p in enumerate(unordered):
         bin_unordered_state = bin(unordered_state)[2:].zfill(full_circuit.num_qubits)
         _, ordered_bin_state = zip(*sorted(zip(unordered_qubit, bin_unordered_state),reverse=True))
         ordered_bin_state = ''.join([str(x) for x in ordered_bin_state])
         ordered_state = int(ordered_bin_state,2)
         ground_p = ground_truth[ordered_state]
-        reconstructed_output.append(unordered_p)
+        reconstructed_output[ordered_state] = unordered_p
     reconstructed_output = np.array(reconstructed_output)
 
     metrics = {}

@@ -522,6 +522,7 @@ verbose):
             subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=mip_model.subcircuits, circuit=circuit)
             O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
             counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
+            smart_order = sorted(list(counter.keys()),key=lambda x:counter[x]['effective'])
 
             reconstruction_cost, num_cuts = cost_estimate(counter=counter)
             assert num_cuts==len(positions)
@@ -534,7 +535,8 @@ verbose):
                 'subcircuits':subcircuits,
                 'complete_path_map':complete_path_map,
                 'num_cuts':num_cuts,
-                'counter':counter}
+                'counter':counter,
+                'smart_order':smart_order}
     if verbose and len(cut_solution)>0:
         print('-'*20)
         print_cutter_result(num_subcircuit=len(cut_solution['subcircuits']),
@@ -570,6 +572,7 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
     counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
     reconstruction_cost, num_cuts = cost_estimate(counter=counter)
     max_subcircuit_width = max([subcircuit.width() for subcircuit in subcircuits])
+    smart_order = sorted(list(counter.keys()),key=lambda x:counter[x]['effective'])
 
     if verbose:
         print('-'*20)
@@ -584,7 +587,8 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
         'subcircuits':subcircuits,
         'complete_path_map':complete_path_map,
         'num_cuts':num_cuts,
-        'counter':counter}
+        'counter':counter,
+        'smart_order':smart_order}
     return cut_solution
 
 def print_cutter_result(num_subcircuit, num_cuts, subcircuits, counter, cost):

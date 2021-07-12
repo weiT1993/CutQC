@@ -87,7 +87,7 @@ if __name__ == '__main__':
     }
     
     # Call CutQC
-    cutqc = CutQC(tasks=[task_3],verbose=True)
+    cutqc = CutQC(tasks=[task_3],verbose=False)
     cutqc.cut()
     
     # Evaluate and verify CutQC results
