@@ -94,5 +94,5 @@ if __name__ == '__main__':
     constant_shots = 1024
     def constant_shots_fn(circuit):
         return constant_shots
-    cutqc.evaluate(eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_nodes=1,num_threads=1,ibmq=None)
+    cutqc.evaluate(eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_threads=1)
     cutqc.verify()
