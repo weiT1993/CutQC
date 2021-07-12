@@ -530,7 +530,6 @@ verbose):
                 min_cost = reconstruction_cost
                 best_mip_model = mip_model
                 cut_solution = {
-                'circuit':circuit,
                 'max_subcircuit_width':max_subcircuit_width,
                 'subcircuits':subcircuits,
                 'complete_path_map':complete_path_map,
@@ -581,7 +580,6 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
         print('-'*20)
 
     cut_solution = {
-        'circuit':circuit,
         'max_subcircuit_width':max_subcircuit_width,
         'subcircuits':subcircuits,
         'complete_path_map':complete_path_map,

@@ -39,4 +39,5 @@ Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarific
 - [ ] Multi-node classical post-processing tools for HPC clusters
 
 ## TODO
+- [ ] Rewrite interface
 - [ ] Port to GPU

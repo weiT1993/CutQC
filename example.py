@@ -1,6 +1,5 @@
 from qiskit.circuit import QuantumCircuit
 from qiskit.quantum_info import random_unitary
-import pickle
 
 from qiskit_helper_functions.non_ibmq_functions import generate_circ
 
@@ -48,7 +47,7 @@ def make_QV():
 
 if __name__ == '__main__':
     # Make circuit(s)
-    circuit_1 = {
+    task_1 = {
         'name':'largest_QV',
         'circuit':make_QV(),
         'kwargs':dict(
@@ -60,28 +59,35 @@ if __name__ == '__main__':
             num_subcircuits=[2,3]
         )
     } # Option 1: automatic MIP solver
-    circuit_2 = {
+    task_2 = {
         'name':'largest_QV_manual_cuts',
         'circuit':make_QV(),
         'kwargs':dict(
             subcircuit_vertices=[range(26),[26,27,28],[29,30,31]]
         )
     } # Option 2: manually specify subcircuit partitions
-    circuit_3 = {
-        'name':'BV',
-        'circuit':generate_circ(full_circ_size=8,circuit_type='bv'),
+    task_3 = {
+        'name':'supremacy',
+        'circuit':generate_circ(full_circ_size=9,circuit_type='supremacy'),
         'kwargs':dict(
-            max_subcircuit_width=5,
+            max_subcircuit_width=6,
             max_subcircuit_cuts=3,
             max_subcircuit_size=10,
             quantum_cost_weight=1.0,
             max_cuts=10,
-            num_subcircuits=[2,3]
+            num_subcircuits=[3]
+        )
+    }
+    task_4 = {
+        'name':'BV_manual',
+        'circuit':generate_circ(full_circ_size=8,circuit_type='bv'),
+        'kwargs':dict(
+            subcircuit_vertices=[[0,1,2,3],[4,5,6]]
         )
     }
     
     # Call CutQC
-    cutqc = CutQC(circuits=[circuit_3],verbose=True)
+    cutqc = CutQC(tasks=[task_3],verbose=True)
     cutqc.cut()
     
     # Evaluate and verify CutQC results
