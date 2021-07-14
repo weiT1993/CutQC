@@ -443,7 +443,7 @@ def circuit_stripping(circuit):
             stripped_dag.apply_operation_back(op=vertex.op, qargs=vertex.qargs)
     return dag_to_circuit(stripped_dag)
 
-def cost_estimate(counter):
+def cost_estimate(counter, quantum_cost_weight):
     num_cuts = sum([counter[subcircuit_idx]['rho'] for subcircuit_idx in counter])
     subcircuit_indices = list(counter.keys())
     num_effective_qubits = [counter[subcircuit_idx]['effective'] for subcircuit_idx in subcircuit_indices]
@@ -454,7 +454,12 @@ def cost_estimate(counter):
         accumulated_kron_len *= 2**effective
         reconstruction_cost += accumulated_kron_len
     reconstruction_cost *= 4**num_cuts
-    return reconstruction_cost, num_cuts
+
+    num_subcircuit_instances = 0
+    for subcircuit_idx in counter:
+        num_subcircuit_instances += 4**counter[subcircuit_idx]['rho'] * 3**counter[subcircuit_idx]['O']
+    cost = (1-quantum_cost_weight)*reconstruction_cost + quantum_cost_weight*num_subcircuit_instances
+    return cost, num_cuts
 
 def get_pairs(complete_path_map):
     O_rho_pairs = []
@@ -524,11 +529,11 @@ verbose):
             counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
             smart_order = sorted(list(counter.keys()),key=lambda x:counter[x]['effective'])
 
-            reconstruction_cost, num_cuts = cost_estimate(counter=counter)
-            assert num_cuts==len(positions)
+            cost, num_cuts = cost_estimate(counter=counter,quantum_cost_weight=quantum_cost_weight)
+            assert num_cuts==len(positions) and num_cuts==len(O_rho_pairs)
 
-            if reconstruction_cost < min_cost:
-                min_cost = reconstruction_cost
+            if cost < min_cost:
+                min_cost = cost
                 best_mip_model = mip_model
                 cut_solution = {
                 'max_subcircuit_width':max_subcircuit_width,
@@ -570,7 +575,8 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
     subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=subcircuits, circuit=circuit)
     O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
     counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
-    reconstruction_cost, num_cuts = cost_estimate(counter=counter)
+    cost, num_cuts = cost_estimate(counter=counter,quantum_cost_weight=0.5)
+    assert num_cuts==len(O_rho_pairs)
     max_subcircuit_width = max([subcircuit.width() for subcircuit in subcircuits])
     smart_order = sorted(list(counter.keys()),key=lambda x:counter[x]['effective'])
 
@@ -579,7 +585,7 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
         print_cutter_result(num_subcircuit=len(subcircuit_vertices),
         num_cuts=len(O_rho_pairs),
         subcircuits=subcircuits,
-        counter=counter, cost=reconstruction_cost)
+        counter=counter, cost=cost)
         print('-'*20)
 
     cut_solution = {

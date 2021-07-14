@@ -4,6 +4,8 @@ CutQC cuts a large quantum circuits into smaller subcircuits and run on small qu
 By combining classical and quantum computation, CutQC significantly expands the computational reach beyond either platform alone.
 
 ## Installation
+### Good news: due to popular feedback about the difficulty to install Intel One API, CutQC now runs on Numpy.
+
 1. Make a Python virtual environment and install required packages:
 ```
 conda create -n cutqc-env python=3

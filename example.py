@@ -1,3 +1,5 @@
+import os, subprocess, pickle
+
 from qiskit.circuit import QuantumCircuit
 from qiskit.quantum_info import random_unitary
 
@@ -53,7 +55,7 @@ if __name__ == '__main__':
         'kwargs':dict(
             max_subcircuit_width=8,
             max_subcircuit_cuts=6,
-            max_subcircuit_size=30,
+            max_subcircuit_size=26,
             quantum_cost_weight=1.0,
             max_cuts=10,
             num_subcircuits=[2,3]
@@ -86,13 +88,23 @@ if __name__ == '__main__':
         )
     }
     
-    # Call CutQC
-    cutqc = CutQC(tasks=[task_3],verbose=False)
-    cutqc.cut()
-    
-    # Evaluate and verify CutQC results
-    constant_shots = 1024
-    def constant_shots_fn(circuit):
-        return constant_shots
-    cutqc.evaluate(eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_threads=1)
-    cutqc.verify()
+    # Call CutQC and save tthe results
+    root_dir = 'QV_test'
+    if os.path.exists(root_dir):
+        subprocess.run(['rm','-r',root_dir])
+    os.makedirs(root_dir)
+    for constant_shots in [1024,8192,16384,65536]:
+        save_dir = '%s/%d'%(root_dir,constant_shots)
+        if os.path.exists(save_dir):
+            subprocess.run(['rm','-r',save_dir])
+        os.makedirs(save_dir)
+
+        for trial in range(10):
+            cutqc = CutQC(tasks=[task_1],verbose=False)
+            cutqc.cut()
+            def constant_shots_fn(circuit):
+                return constant_shots
+            cutqc.evaluate(eval_mode='qasm',num_shots_fn=constant_shots_fn,mem_limit=24,num_threads=1)
+            cutqc.verify()
+
+            pickle.dump(cutqc.tasks,open('%s/trial_%d.pckl'%(save_dir,trial),'wb'))
