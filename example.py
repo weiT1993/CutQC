@@ -94,4 +94,4 @@ if __name__ == '__main__':
     def constant_shots_fn(circuit):
         return 1024
     cutqc.evaluate(eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_threads=1)
-    cutqc.verify()
+    # cutqc.verify()
