@@ -6,11 +6,10 @@ By combining classical and quantum computation, CutQC significantly expands the 
 ## Installation
 ### Good news: due to popular feedback about the difficulty to install Intel One API, CutQC now runs on Numpy.
 
-1. Make a Python virtual environment and install required packages:
+1. Make a Python virtual environment:
 ```
 conda create -n cutqc-env python=3
 conda deactivate && conda activate cutqc-env
-pip install numpy qiskit matplotlib pydot
 ```
 2. CutQC uses the [Gurobi](https://www.gurobi.com) solver. Install Gurobi and obtain a license.
 To install Gurobi for Python, follow the [instructions](https://www.gurobi.com/documentation/9.1/quickstart_linux/cs_python_installation_opt.html). Here we copy paste the up-to-date command as of 05/10/2021 for convenience.
@@ -18,7 +17,11 @@ To install Gurobi for Python, follow the [instructions](https://www.gurobi.com/d
 conda config --add channels https://conda.anaconda.org/gurobi
 conda install gurobi
 ```
-3. Install the latest [Qiskit helper functions](https://github.com/weiT1993/qiskit_helper_functions).
+3. Install required packages:
+```
+pip install numpy qiskit matplotlib pydot
+```
+Install the latest [Qiskit helper functions](https://github.com/weiT1993/qiskit_helper_functions).
 ```
 pip install .
 ```
