@@ -443,23 +443,22 @@ def circuit_stripping(circuit):
             stripped_dag.apply_operation_back(op=vertex.op, qargs=vertex.qargs)
     return dag_to_circuit(stripped_dag)
 
-def cost_estimate(counter, quantum_cost_weight):
+def cost_estimate(counter):
     num_cuts = sum([counter[subcircuit_idx]['rho'] for subcircuit_idx in counter])
     subcircuit_indices = list(counter.keys())
     num_effective_qubits = [counter[subcircuit_idx]['effective'] for subcircuit_idx in subcircuit_indices]
     num_effective_qubits, _ = zip(*sorted(zip(num_effective_qubits, subcircuit_indices)))
-    reconstruction_cost = 0
+    classical_cost = 0
     accumulated_kron_len = 2**num_effective_qubits[0]
     for effective in num_effective_qubits[1:]:
         accumulated_kron_len *= 2**effective
-        reconstruction_cost += accumulated_kron_len
-    reconstruction_cost *= 4**num_cuts
+        classical_cost += accumulated_kron_len
+    classical_cost *= 4**num_cuts
 
     num_subcircuit_instances = 0
     for subcircuit_idx in counter:
         num_subcircuit_instances += 4**counter[subcircuit_idx]['rho'] * 3**counter[subcircuit_idx]['O']
-    cost = (1-quantum_cost_weight)*reconstruction_cost + quantum_cost_weight*num_subcircuit_instances
-    return cost, num_cuts
+    return num_subcircuit_instances, classical_cost
 
 def get_pairs(complete_path_map):
     O_rho_pairs = []
@@ -528,8 +527,8 @@ verbose):
             O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
             counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
 
-            cost, num_cuts = cost_estimate(counter=counter,quantum_cost_weight=quantum_cost_weight)
-            assert num_cuts==len(positions) and num_cuts==len(O_rho_pairs)
+            quantum_cost, classical_cost = cost_estimate(counter=counter)
+            cost = (1-quantum_cost_weight)*classical_cost + quantum_cost_weight*quantum_cost
 
             if cost < min_cost:
                 min_cost = cost
@@ -538,14 +537,19 @@ verbose):
                 'max_subcircuit_width':max_subcircuit_width,
                 'subcircuits':subcircuits,
                 'complete_path_map':complete_path_map,
-                'num_cuts':num_cuts,
-                'counter':counter}
+                'num_cuts':len(positions),
+                'counter':counter,
+                'classical_cost':classical_cost,
+                'quantum_cost':quantum_cost}
     if verbose and len(cut_solution)>0:
         print('-'*20)
         print_cutter_result(num_subcircuit=len(cut_solution['subcircuits']),
-        num_cuts=len(best_mip_model.cut_edges),
+        num_cuts=cut_solution['num_cuts'],
         subcircuits=cut_solution['subcircuits'],
-        counter=cut_solution['counter'], cost=min_cost)
+        counter=cut_solution['counter'],
+        classical_cost=cut_solution['classical_cost'],
+        quantum_cost=cut_solution['quantum_cost'],
+        quantum_cost_weight=quantum_cost_weight)
 
         print('Model objective value = %.2e'%(best_mip_model.objective),flush=True)
         print('MIP runtime:', best_mip_model.runtime,flush=True)
@@ -573,27 +577,31 @@ def cut_circuit(circuit, subcircuit_vertices, verbose):
     subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=subcircuits, circuit=circuit)
     O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
     counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
-    cost, num_cuts = cost_estimate(counter=counter,quantum_cost_weight=0.5)
-    assert num_cuts==len(O_rho_pairs)
+    quantum_cost, classical_cost = cost_estimate(counter=counter)
     max_subcircuit_width = max([subcircuit.width() for subcircuit in subcircuits])
-
-    if verbose:
-        print('-'*20)
-        print_cutter_result(num_subcircuit=len(subcircuit_vertices),
-        num_cuts=len(O_rho_pairs),
-        subcircuits=subcircuits,
-        counter=counter, cost=cost)
-        print('-'*20)
 
     cut_solution = {
         'max_subcircuit_width':max_subcircuit_width,
         'subcircuits':subcircuits,
         'complete_path_map':complete_path_map,
-        'num_cuts':num_cuts,
-        'counter':counter}
+        'num_cuts':len(O_rho_pairs),
+        'counter':counter,
+        'classical_cost':classical_cost,
+        'quantum_cost':quantum_cost}
+
+    if verbose:
+        print('-'*20)
+        print_cutter_result(num_subcircuit=len(cut_solution['subcircuits']),
+        num_cuts=cut_solution['num_cuts'],
+        subcircuits=cut_solution['subcircuits'],
+        counter=cut_solution['counter'],
+        classical_cost=cut_solution['classical_cost'],
+        quantum_cost=cut_solution['quantum_cost'],
+        quantum_cost_weight=0.5)
+        print('-'*20)
     return cut_solution
 
-def print_cutter_result(num_subcircuit, num_cuts, subcircuits, counter, cost):
+def print_cutter_result(num_subcircuit, num_cuts, subcircuits, counter, classical_cost, quantum_cost, quantum_cost_weight):
     print('Cutter result:')
     print('%d subcircuits, %d cuts'%(num_subcircuit,num_cuts))
 
@@ -607,4 +615,6 @@ def print_cutter_result(num_subcircuit, num_cuts, subcircuits, counter, cost):
         counter[subcircuit_idx]['depth'],
         counter[subcircuit_idx]['size']))
         print(subcircuits[subcircuit_idx])
+    print('Classical cost = %.3e. Quantum cost = %.3e. quantum_cost_weight = %.3f'%(classical_cost,quantum_cost,quantum_cost_weight))
+    cost = (1-quantum_cost_weight)*classical_cost + quantum_cost_weight*quantum_cost
     print('Estimated cost = %.3e'%cost,flush=True)
