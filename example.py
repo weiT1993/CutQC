@@ -70,14 +70,14 @@ if __name__ == '__main__':
     } # Option 2: manually specify subcircuit partitions
     task_3 = {
         'name':'supremacy',
-        'circuit':generate_circ(full_circ_size=16,circuit_type='supremacy'),
+        'circuit':generate_circ(full_circ_size=25,circuit_type='supremacy'),
         'kwargs':dict(
-            max_subcircuit_width=12,
+            max_subcircuit_width=16,
             max_subcircuit_cuts=10,
             max_subcircuit_size=50,
-            quantum_cost_weight=0.0,
+            quantum_cost_weight=1.0,
             max_cuts=10,
-            num_subcircuits=[2,3]
+            num_subcircuits=[2,3,4]
         )
     }
     task_4 = {
@@ -87,11 +87,23 @@ if __name__ == '__main__':
             subcircuit_vertices=[[0,1,2,3],[4,5,6]]
         )
     }
+    task_5 = {
+        'name':'BV',
+        'circuit':generate_circ(full_circ_size=10,circuit_type='bv'),
+        'kwargs':dict(
+            max_subcircuit_width=4,
+            max_subcircuit_cuts=10,
+            max_subcircuit_size=50,
+            quantum_cost_weight=1.0,
+            max_cuts=10,
+            num_subcircuits=[2,3,4]
+        )
+    }
     
     # Call CutQC
-    cutqc = CutQC(tasks=[task_4],verbose=True)
+    cutqc = CutQC(tasks=[task_5],verbose=True)
     cutqc.cut()
     def constant_shots_fn(circuit):
         return 1024
     cutqc.evaluate(eval_mode='sv',num_shots_fn=constant_shots_fn,mem_limit=24,num_threads=1)
-    cutqc.verify()
+    # cutqc.verify()
