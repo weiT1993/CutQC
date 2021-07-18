@@ -27,7 +27,7 @@ pip install .
 ```
 
 ## Example Code
-For example, use CutQC to cut a 3*5 Supremacy circuit and run on a 10-qubit quantum computer
+For an example, run:
 ```
 python example.py
 ```
@@ -44,5 +44,4 @@ Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarific
 - [ ] Multi-node classical post-processing tools for HPC clusters
 
 ## TODO
-- [ ] Optimize build
 - [ ] Port to GPU
