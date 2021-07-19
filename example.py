@@ -101,7 +101,7 @@ if __name__ == '__main__':
     }
     
     # Call CutQC
-    cutqc = CutQC(tasks=[task_3],verbose=True)
+    cutqc = CutQC(tasks=[task_5],verbose=True)
     cutqc.cut()
     def constant_shots_fn(circuit):
         return 1024
