@@ -3,13 +3,14 @@ CutQC is the backend codes for the paper [CutQC: using small quantum computers f
 CutQC cuts a large quantum circuits into smaller subcircuits and run on small quantum computers.
 By combining classical and quantum computation, CutQC significantly expands the computational reach beyond either platform alone.
 
-## Installation
-### Good news: due to popular feedback about the difficulty to install Intel One API, CutQC now runs on Numpy.
+## Latest Developments
+- Added GPU support
 
+## Installation
 1. Make a Python virtual environment:
 ```
-conda create -n cutqc-env python=3
-conda deactivate && conda activate cutqc-env
+conda create -n cutqc python=3.8
+conda deactivate && conda activate cutqc
 ```
 2. CutQC uses the [Gurobi](https://www.gurobi.com) solver. Install Gurobi and obtain a license.
 To install Gurobi for Python, follow the [instructions](https://www.gurobi.com/documentation/9.1/quickstart_linux/cs_python_installation_opt.html). Here we copy paste the up-to-date command as of 05/10/2021 for convenience.
@@ -19,11 +20,11 @@ conda install gurobi
 ```
 3. Install required packages:
 ```
-pip install numpy qiskit matplotlib pydot
+pip install numpy qiskit matplotlib pydot scipy tqdm pylatexenc scikit-learn tensorflow
 ```
-Install the latest [Qiskit helper functions](https://github.com/weiT1993/qiskit_helper_functions).
+Download and install the latest [Qiskit helper functions](https://github.com/weiT1993/qiskit_helper_functions).
 ```
-pip install .
+pip install . --use-feature=in-tree-build
 ```
 
 ## Example Code
@@ -31,6 +32,9 @@ For an example, run:
 ```
 python example.py
 ```
+This runs an example 16-qubit supremacy circuit.
+Currently the output qubits are in a scrambled order based on the subcircuit post-processing sequence.
+A function that converts any state to the original order will be added.
 
 ## Citing CutQC
 If you use CutQC in your work, we would appreciate it if you cite our paper:
@@ -40,8 +44,5 @@ Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi
 ## Questions
 Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
 
-## Coming soon
-- [ ] Multi-node classical post-processing tools for HPC clusters
-
-## TODO
-- [ ] Port to GPU
+##TODO
+- [ ] Qubit reorder function
