@@ -1,6 +1,5 @@
-import os
+from os import times
 from qiskit.converters import circuit_to_dag
-import numpy as np
 
 def check_valid(circuit):
     '''
@@ -19,13 +18,13 @@ def check_valid(circuit):
         if op_node.op.name=='barrier':
             raise ValueError('Please remove barriers from the circuit before cutting')
 
-def read_prob_from_txt(filename):
-    if os.path.isfile(filename):
-        txt_file = open(filename,'r')
-        lines = txt_file.readlines()
-        assert len(lines)==1
-        prob = lines[0].rstrip().split(' ')
-        prob = np.array(prob,dtype=float)
-    else:
-        prob = np.array([])
-    return prob
+def add_times(times_a, times_b):
+    '''
+    Add the two time breakdowns
+    '''
+    for field in times_b:
+        if field in times_a:
+            times_a[field] += times_b[field]
+        else:
+            times_a[field] = times_b[field]
+    return times_a
