@@ -33,8 +33,8 @@ For an example, run:
 python example.py
 ```
 This runs an example 16-qubit supremacy circuit.
-Currently the output qubits are in a scrambled order based on the subcircuit post-processing sequence.
-A function that converts any state to the original order will be added.
+The output qubits are in a scrambled order based on the subcircuit post-processing sequence.
+A function that converts an arbitrary state of interest to the original order will be added.
 
 ## Citing CutQC
 If you use CutQC in your work, we would appreciate it if you cite our paper:
@@ -44,5 +44,5 @@ Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi
 ## Questions
 Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
 
-##TODO
+## TODO
 - [ ] Qubit reorder function
