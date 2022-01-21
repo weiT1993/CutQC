@@ -3,6 +3,18 @@ CutQC is the backend codes for the paper [CutQC: using small quantum computers f
 CutQC cuts a large quantum circuits into smaller subcircuits and run on small quantum computers.
 By combining classical and quantum computation, CutQC significantly expands the computational reach beyond either platform alone.
 
+## Important note:
+There are currently no fault tolerant quantum computers available.
+As a result, the perfect fidelity toolchain of CutQC has to rely on classical simulators.
+Therefore, using CutQC nowadays will NOT provide better performance than purely classical simulations.
+However, with the rapid development of the various hardware vendors,
+CutQC is expected to achieve the advantage discussed in the paper over either quantum or classical platforms.
+
+This code repo hence provides two CutQC backends:
+1. Using classical simulators as the ``QPU'' backend.
+2. Using random number generator as the ``QPU'' backend.
+Use this mode if you are just interested in the runtime performance of CutQC.
+
 ## Latest Developments
 - Added GPU support
 
