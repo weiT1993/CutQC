@@ -1,4 +1,4 @@
-'''
+"""
 Teague Tomesh - 3/25/2019
 
 Implementation of the UCCSD ansatz for use in the VQE algorithm.
@@ -24,7 +24,7 @@ Both Whitfield et al. and Barkoutsos et al. order increasing from bottom -> top
 Not a problem. Qubit index is what matters. Set reverse_bits = True when 
 drawing Qiskit circuit.
 
-'''
+"""
 
 from qiskit import QuantumCircuit, QuantumRegister
 import sys
@@ -59,8 +59,9 @@ class UCCSD:
         Qiskit QuantumCircuit that represents the uccsd circuit
     """
 
-    def __init__(self, width, parameters='random', seed=None, barriers=False,
-                 regname=None):
+    def __init__(
+        self, width, parameters="random", seed=None, barriers=False, regname=None
+    ):
 
         # number of qubits
         self.nq = width
@@ -82,7 +83,6 @@ class UCCSD:
             self.qr = QuantumRegister(self.nq, name=regname)
         self.circ = QuantumCircuit(self.qr)
 
-
     def M_d(self, i, p, q, r, s, dagger=False):
         """
         See Double Excitation Operator circuit in Table A1
@@ -92,9 +92,9 @@ class UCCSD:
         """
 
         if dagger:
-            angle = math.pi/2
+            angle = math.pi / 2
         else:
-            angle = -math.pi/2
+            angle = -math.pi / 2
 
         qr = self.circ.qregs[0]
 
@@ -139,7 +139,6 @@ class UCCSD:
             self.circ.rx(angle, qr[r])
             self.circ.h(qr[s])
 
-
     def CNOTLadder(self, controlStartIndex, controlStopIndex):
         """
         Applies a ladder of CNOTs, as in the dashed-CNOT notation at bottom of
@@ -159,9 +158,8 @@ class UCCSD:
             index = controlStartIndex
 
         while index is not controlStopIndex:
-            self.circ.cx(qr[index], qr[index-1])
+            self.circ.cx(qr[index], qr[index - 1])
             index += delta
-
 
     def DoubleExcitationOperator(self, theta, p, q, r, s):
         """
@@ -170,7 +168,7 @@ class UCCSD:
 
         qr = self.circ.qregs[0]
 
-        for i in range(1,9):
+        for i in range(1, 9):
 
             if self.barriers:
                 self.circ.barrier(qr)
@@ -181,20 +179,19 @@ class UCCSD:
                 self.circ.barrier(qr)
 
             self.CNOTLadder(p, q)
-            self.circ.cx(qr[q],qr[r])
+            self.circ.cx(qr[q], qr[r])
             self.CNOTLadder(r, s)
 
-            self.circ.rz(theta,qr[s]) # Rz(reg[s], Theta_p_q_r_s[p][q][r][s]);
+            self.circ.rz(theta, qr[s])  # Rz(reg[s], Theta_p_q_r_s[p][q][r][s]);
 
             self.CNOTLadder(s, r)
-            self.circ.cx(qr[q],qr[r])
+            self.circ.cx(qr[q], qr[r])
             self.CNOTLadder(q, p)
 
             if self.barriers:
                 self.circ.barrier(qr)
 
             self.M_d(i, p, q, r, s, dagger=True)
-
 
     def SingleExcitationOperator(self, theta, p, q):
         """
@@ -212,7 +209,7 @@ class UCCSD:
         self.circ.h(qr[q])
 
         self.CNOTLadder(p, q)
-        self.circ.rz(theta,qr[q]) # Rz(reg[q], Theta_p_q[p][q]);
+        self.circ.rz(theta, qr[q])  # Rz(reg[q], Theta_p_q[p][q]);
         self.CNOTLadder(q, p)
 
         if self.barriers:
@@ -221,18 +218,17 @@ class UCCSD:
         self.circ.h(qr[p])
         self.circ.h(qr[q])
 
-        self.circ.rx(-math.pi/2, qr[p])
-        self.circ.rx(-math.pi/2, qr[q])
+        self.circ.rx(-math.pi / 2, qr[p])
+        self.circ.rx(-math.pi / 2, qr[q])
         self.CNOTLadder(p, q)
-        self.circ.rz(theta,qr[q]) # Rz(reg[q], Theta_p_q[p][q]);
+        self.circ.rz(theta, qr[q])  # Rz(reg[q], Theta_p_q[p][q]);
         self.CNOTLadder(q, p)
 
         if self.barriers:
             self.circ.barrier(qr)
 
-        self.circ.rx(-math.pi/2, qr[p])
-        self.circ.rx(-math.pi/2, qr[q])
-
+        self.circ.rx(-math.pi / 2, qr[p])
+        self.circ.rx(-math.pi / 2, qr[q])
 
     def gen_circuit(self):
         """
@@ -247,50 +243,49 @@ class UCCSD:
             QuantumCircuit object of size nq with no ClassicalRegister and
             no measurements
         """
-        # Ensure the # of parameters matches what is neede by the current value of 
-        # Nq, then set a counter, p_i=0, when the circuit is first initialized, and 
-        # every call to the single or double operator will take param[p_i] as its 
+        # Ensure the # of parameters matches what is neede by the current value of
+        # Nq, then set a counter, p_i=0, when the circuit is first initialized, and
+        # every call to the single or double operator will take param[p_i] as its
         # parameter and then increment the value of p_i
 
-        num_dbl = (self.nq**4 - 6*self.nq**3 + 11*self.nq**2 - 6*self.nq) / 24
+        num_dbl = (
+            self.nq**4 - 6 * self.nq**3 + 11 * self.nq**2 - 6 * self.nq
+        ) / 24
         num_sgl = (self.nq**2 - self.nq) / 2
         numparam = int(num_dbl + num_sgl)
 
-        if self.parameters == 'random':
+        if self.parameters == "random":
 
             param = np.random.uniform(-np.pi, np.pi, numparam)
 
-        elif self.parameters == 'seeded':
+        elif self.parameters == "seeded":
             if self.seed is None:
-                raise Exception('A valid seed must be provided')
+                raise Exception("A valid seed must be provided")
             else:
                 np.random.seed(self.seed)
 
             param = np.random.uniform(-np.pi, np.pi, numparam)
 
         else:
-            raise Exception('Unknown parameter option')
+            raise Exception("Unknown parameter option")
 
         p_i = 0
 
         # enumerate all Nq > p > q > r > s >= 0 and apply Double Excitation Operator
         for p in range(self.nq):
-          for q in range(p):
-            for r in range(q):
-              for s in range(r):
-                #print(p,q,r,s)
-                # For the 4 qubit case this function is called a single time
-                self.DoubleExcitationOperator(param[p_i],p,q,r,s)
-                p_i += 1
+            for q in range(p):
+                for r in range(q):
+                    for s in range(r):
+                        # print(p,q,r,s)
+                        # For the 4 qubit case this function is called a single time
+                        self.DoubleExcitationOperator(param[p_i], p, q, r, s)
+                        p_i += 1
 
         # enumerate all Nq > p > q >= 0 and apply Single Excitation Operator
         for p in range(self.nq):
-          for q in range(p):
-            #print(p,q)
-            self.SingleExcitationOperator(param[p_i], p, q)
-            p_i += 1
+            for q in range(p):
+                # print(p,q)
+                self.SingleExcitationOperator(param[p_i], p, q)
+                p_i += 1
 
         return self.circ
-
-
-

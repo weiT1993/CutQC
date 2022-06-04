@@ -40,13 +40,21 @@ class HWEA:
         Qiskit QuantumCircuit that represents the hardware-efficient ansatz
     """
 
-    def __init__(self, width, depth, parameters='optimal', seed=None,
-                 barriers=False, measure=False, regname=None):
+    def __init__(
+        self,
+        width,
+        depth,
+        parameters="optimal",
+        seed=None,
+        barriers=False,
+        measure=False,
+        regname=None,
+    ):
 
         # number of qubits
         self.nq = width
         # number of layers
-        self.d  = depth
+        self.d = depth
 
         # set flags for circuit generation
         self.parameters = parameters
@@ -54,20 +62,19 @@ class HWEA:
         self.barriers = barriers
         self.measure = measure
 
-	# Create a Quantum and Classical Register.
+        # Create a Quantum and Classical Register.
         if regname is None:
             self.qr = QuantumRegister(self.nq)
             self.cr = ClassicalRegister(self.nq)
         else:
             self.qr = QuantumRegister(self.nq, name=regname)
-            self.cr = ClassicalRegister(self.nq, name='c'+regname)
+            self.cr = ClassicalRegister(self.nq, name="c" + regname)
         # It is easier for the circuit cutter to handle circuits
         # without measurement or classical registers
         if self.measure:
             self.circ = QuantumCircuit(self.qr, self.cr)
         else:
             self.circ = QuantumCircuit(self.qr)
-
 
     def get_noiseless_theta(self):
         """
@@ -90,25 +97,23 @@ class HWEA:
             vector of length 2*nq * (1+d)
         """
 
-        theta = np.zeros(2 * self.nq * (1+self.d))
-        theta[0] = np.pi/2
+        theta = np.zeros(2 * self.nq * (1 + self.d))
+        theta[0] = np.pi / 2
         theta[2 * self.nq : 2 * self.nq + math.floor(self.nq / 2)] = np.pi
 
         return theta
 
-
     def get_random_theta(self):
 
-        if self.parameters == 'seeded':
+        if self.parameters == "seeded":
             if self.seed is None:
-                raise Exception('A valid seed must be provided')
+                raise Exception("A valid seed must be provided")
             else:
                 np.random.seed(self.seed)
 
-        theta = np.random.uniform(-np.pi, np.pi, 4*self.nq)
+        theta = np.random.uniform(-np.pi, np.pi, 4 * self.nq)
 
         return theta
-
 
     def gen_circuit(self):
         """
@@ -127,18 +132,18 @@ class HWEA:
             Prints the error in the circuit
         """
 
-        if self.parameters == 'optimal':
+        if self.parameters == "optimal":
             theta = self.get_noiseless_theta()
-        elif   self.parameters in ['random', 'seeded']:
+        elif self.parameters in ["random", "seeded"]:
             theta = self.get_random_theta()
         else:
-            raise Exception('Unknown parameter option: {}'.format(self.parameters))
+            raise Exception("Unknown parameter option: {}".format(self.parameters))
 
         try:
             # INITIAL PARAMETERIZER
             # layer 1
-            #theta = np.arange(len(theta))
-            #print(len(theta))
+            # theta = np.arange(len(theta))
+            # print(len(theta))
             p_idx = 0
             for i in range(self.nq):
                 self.circ.u3(theta[i + p_idx], 0, 0, self.qr[i])
@@ -155,10 +160,10 @@ class HWEA:
             # For each layer, d, execute an entangler followed by a parameterizer block
             for dd in range(self.d):
                 # ENTANGLER
-                for i in range(self.nq-1):
-                    #qc.h(q[i+1])
-                    self.circ.cx(self.qr[i], self.qr[i+1])
-                    #qc.h(q[i+1])
+                for i in range(self.nq - 1):
+                    # qc.h(q[i+1])
+                    self.circ.cx(self.qr[i], self.qr[i + 1])
+                    # qc.h(q[i+1])
 
                 if self.barriers:
                     self.circ.barrier()
@@ -177,18 +182,16 @@ class HWEA:
             # place measurements on the end of the circuit
             if self.measure:
                 self.circ.barrier()
-                self.circ.measure(self.qr,self.cr)
+                self.circ.measure(self.qr, self.cr)
 
             return self.circ
 
         except QiskitError as ex:
-            raise Exception('There was an error in the circuit!. Error = {}'.format(ex))
+            raise Exception("There was an error in the circuit!. Error = {}".format(ex))
 
 
 if __name__ == "__main__":
     nb_qubits = 8
-    hwea = HWEA(8,1)
+    hwea = HWEA(8, 1)
     qc = gen_circuit
     print(qc)
-
-
