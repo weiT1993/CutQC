@@ -478,39 +478,6 @@ verbose):
         print('-'*20,flush=True)
     return cut_solution
 
-def cut_circuit(circuit, subcircuit_vertices, verbose):
-    stripped_circ = circuit_stripping(circuit=circuit)
-    n_vertices, edges, vertex_ids, id_vertices = read_circ(circuit=stripped_circ)
-
-    subcircuits = []
-    for vertices in subcircuit_vertices:
-        subcircuit = []
-        for vertex in vertices:
-            subcircuit.append(id_vertices[vertex])
-        subcircuits.append(subcircuit)
-    if sum([len(subcircuit) for subcircuit in subcircuits])!=n_vertices:
-        raise ValueError('Not all gates are assigned into subcircuits')
-
-    subcircuits, complete_path_map = subcircuits_parser(subcircuit_gates=subcircuits, circuit=circuit)
-    O_rho_pairs = get_pairs(complete_path_map=complete_path_map)
-    counter = get_counter(subcircuits=subcircuits, O_rho_pairs=O_rho_pairs)
-    max_subcircuit_width = max([subcircuit.width() for subcircuit in subcircuits])
-
-    cut_solution = {
-        'max_subcircuit_width':max_subcircuit_width,
-        'subcircuits':subcircuits,
-        'complete_path_map':complete_path_map,
-        'num_cuts':len(O_rho_pairs),
-        'counter':counter}
-
-    if verbose:
-        print('-'*20)
-        print_cutter_result(num_cuts=cut_solution['num_cuts'],
-        subcircuits=cut_solution['subcircuits'],
-        counter=cut_solution['counter'])
-        print('-'*20)
-    return cut_solution
-
 def print_cutter_result(num_cuts, subcircuits, counter):
     print('Cutter result:')
     print('%d subcircuits, %d cuts'%(len(subcircuits),num_cuts))

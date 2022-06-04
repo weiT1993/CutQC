@@ -53,10 +53,12 @@ class GraphContractor(object):
 					summation_term = subcircuit_entry_prob
 				else:
 					summation_term = tf.reshape(tf.tensordot(summation_term,subcircuit_entry_prob,axes=0),[-1])
+					self.overhead['multiplications'] += len(summation_term)
 			if reconstructed_prob is None:
 				reconstructed_prob = summation_term
 			else:
 				reconstructed_prob += summation_term
+				self.overhead['additions'] += len(summation_term)
 			counter += 1
 			if counter==4**3:
 				break
@@ -68,4 +70,6 @@ class GraphContractor(object):
 		scale_time = perf_counter() - scale_begin
 
 		self.times['compute'] = partial_compute_time/counter*4**len(edges) + scale_time
+		self.overhead['additions'] = int(self.overhead['additions']/counter*4**len(edges))
+		self.overhead['multiplications'] = int(self.overhead['multiplications']/counter*4**len(edges))
 		return reconstructed_prob
