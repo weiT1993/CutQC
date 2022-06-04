@@ -47,9 +47,8 @@ class Dynamics:
         self.circ = QuantumCircuit(self.qr)
 
         # Create and add an ancilla register to the circuit
-        self.ancQ = QuantumRegister(1, 'ancQ')
+        self.ancQ = QuantumRegister(1, "ancQ")
         self.circ.add_register(self.ancQ)
-
 
     def get_num_qubits(self):
         """
@@ -65,7 +64,6 @@ class Dynamics:
                 numq = len(term)
         return numq
 
-
     def compute_to_Z_basis(self, pauli_str):
         """
         Take the given pauli_str of the form ABCD and apply operations to the
@@ -77,12 +75,11 @@ class Dynamics:
             string of the form 'p1p2p3...pN' where pK is a Pauli matrix
         """
         for i, pauli in enumerate(pauli_str):
-            if pauli is 'X':
+            if pauli is "X":
                 self.circ.h(self.qr[i])
-            elif pauli is 'Y':
+            elif pauli is "Y":
                 self.circ.h(self.qr[i])
                 self.circ.s(self.qr[i])
-
 
     def uncompute_to_Z_basis(self, pauli_str):
         """
@@ -95,12 +92,11 @@ class Dynamics:
             string of the form 'p1p2p3...pN' where pK is a Pauli matrix
         """
         for i, pauli in enumerate(pauli_str):
-            if pauli is 'X':
+            if pauli is "X":
                 self.circ.h(self.qr[i])
-            elif pauli is 'Y':
+            elif pauli is "Y":
                 self.circ.sdg(self.qr[i])
                 self.circ.h(self.qr[i])
-
 
     def apply_phase_shift(self, delta_t):
         """
@@ -112,12 +108,11 @@ class Dynamics:
 
         # apply phase shift to the ancilla
         # rz applies the unitary: exp(-i*theta*Z/2)
-        self.circ.rz(2*delta_t, self.ancQ[0])
+        self.circ.rz(2 * delta_t, self.ancQ[0])
 
         # apply CNOT ladder -> uncompute parity
-        for i in range(self.nq-1, -1, -1):
+        for i in range(self.nq - 1, -1, -1):
             self.circ.cx(self.qr[i], self.ancQ[0])
-
 
     def gen_circuit(self):
         """
@@ -129,7 +124,7 @@ class Dynamics:
             QuantumCircuit object of size nq with no ClassicalRegister and
             no measurements
         """
-        
+
         # generate a naive version of a simulation circuit
 
         for term in self.H:
@@ -144,10 +139,7 @@ class Dynamics:
                 self.circ.barrier()
 
         # generate a commutation aware version of a simulation circuit
-        # simulate all commuting terms simulataneously by using 1 ancilla per 
+        # simulate all commuting terms simulataneously by using 1 ancilla per
         # term that will encode the phase shift based on the parity of the term.
 
         return self.circ
-
-
-

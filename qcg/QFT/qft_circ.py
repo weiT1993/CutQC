@@ -44,8 +44,16 @@ class QFT:
         Qiskit QuantumCircuit that represents the uccsd circuit
     """
 
-    def __init__(self, width, approximation_degree, inverse=False, kvals=False, barriers=True,
-                 measure=False, regname=None):
+    def __init__(
+        self,
+        width,
+        approximation_degree,
+        inverse=False,
+        kvals=False,
+        barriers=True,
+        measure=False,
+        regname=None,
+    ):
 
         # number of qubits
         self.nq = width
@@ -63,13 +71,12 @@ class QFT:
             self.cr = ClassicalRegister(self.nq)
         else:
             self.qr = QuantumRegister(self.nq, name=regname)
-            self.cr = ClassicalRegister(self.nq, name='c'+regname)
+            self.cr = ClassicalRegister(self.nq, name="c" + regname)
         # Have the option to include measurement if desired
         if self.measure:
-            self.circ = QuantumCircuit(self.qr,self.cr)
+            self.circ = QuantumCircuit(self.qr, self.cr)
         else:
             self.circ = QuantumCircuit(self.qr)
-
 
     def inv_qft(self):
         """
@@ -84,19 +91,18 @@ class QFT:
         cu1 = 1  0
               0  e^(-2pi*i / 2^(k-j+1))
         """
-        for j in range(self.nq-1,-1,-1):
-            for k in range(self.nq-1,j,-1):
+        for j in range(self.nq - 1, -1, -1):
+            for k in range(self.nq - 1, j, -1):
                 if self.kvals:
-                    self.circ.cu1(-1*(k-j+1), self.qr[k], self.qr[j])
+                    self.circ.cu1(-1 * (k - j + 1), self.qr[k], self.qr[j])
                 else:
-                    self.circ.cu1(-1 * (2*np.pi) / (2**(k-j+1)),
-                                  self.qr[k],
-                                  self.qr[j])
+                    self.circ.cu1(
+                        -1 * (2 * np.pi) / (2 ** (k - j + 1)), self.qr[k], self.qr[j]
+                    )
             self.circ.h(self.qr[j])
 
             if self.barriers:
                 self.circ.barrier()
-
 
     def reg_qft(self):
         """
@@ -113,12 +119,14 @@ class QFT:
         """
         for j in range(self.nq):
             self.circ.h(self.qr[j])
-            for k in range(j+1,self.nq):
+            for k in range(j + 1, self.nq):
                 if self.kvals:
-                    self.circ.cu1(k-j+1, self.qr[k], self.qr[j])
+                    self.circ.cu1(k - j + 1, self.qr[k], self.qr[j])
                 else:
-                    if k-j+1<=self.approximation_degree:
-                        self.circ.cu1((2*np.pi)/(2**(k-j+1)),self.qr[k],self.qr[j])
+                    if k - j + 1 <= self.approximation_degree:
+                        self.circ.cu1(
+                            (2 * np.pi) / (2 ** (k - j + 1)), self.qr[k], self.qr[j]
+                        )
 
             if self.barriers:
                 self.circ.barrier()
@@ -144,6 +152,6 @@ class QFT:
 
         if self.measure:
             self.circ.barrier()
-            self.circ.measure(self.qr,self.cr)
+            self.circ.measure(self.qr, self.cr)
 
         return self.circ

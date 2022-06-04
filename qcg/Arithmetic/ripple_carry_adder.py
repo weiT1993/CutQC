@@ -1,11 +1,11 @@
-'''
+"""
 Teague Tomesh - 2/10/2020
 
 Implementation of an n-bit ripple-carry adder.
 
 Based on the specification given in Cuccaro, Draper, Kutin, Moulton.
 (https://arxiv.org/abs/quant-ph/0410184v1)
-'''
+"""
 
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 
@@ -51,12 +51,20 @@ class RCAdder:
         Qiskit QuantumCircuit that represents the uccsd circuit
     """
 
-    def __init__(self, nbits=None, a=0, b=0, use_toffoli=False, barriers=False,
-                 measure=False, regname=None):
+    def __init__(
+        self,
+        nbits=None,
+        a=0,
+        b=0,
+        use_toffoli=False,
+        barriers=False,
+        measure=False,
+        regname=None,
+    ):
 
         # number of bits the adder can handle
         if nbits is None:
-            raise Exception('Number of bits must be specified')
+            raise Exception("Number of bits must be specified")
         else:
             self.nbits = nbits
 
@@ -64,11 +72,13 @@ class RCAdder:
         # number of qubits = 1 ancilla for the initial carry value
         #                    + 2*nbits to hold both a and b
         #                    + 1 more qubit to hold the high bit, s_n
-        self.nq = 1 + 2*nbits + 1
+        self.nq = 1 + 2 * nbits + 1
 
         # set flags for circuit generation
-        if len('{0:b}'.format(a)) > nbits or len('{0:b}'.format(b)) > nbits:
-            raise Exception('Binary representations of a and b must be less than or equal to nbits')
+        if len("{0:b}".format(a)) > nbits or len("{0:b}".format(b)) > nbits:
+            raise Exception(
+                "Binary representations of a and b must be less than or equal to nbits"
+            )
 
         self.a = a
         self.b = b
@@ -88,7 +98,6 @@ class RCAdder:
             self.cr = ClassicalRegister(self.nq)
             self.circ.add_register(self.cr)
 
-
     def _initialize_value(self, indices, value):
         """
         Initialize the qubits at indices to the given value
@@ -100,47 +109,44 @@ class RCAdder:
         value : int
             The desired initial value
         """
-        binstr = '{0:b}'.format(value)
+        binstr = "{0:b}".format(value)
         for index, val in enumerate(reversed(binstr)):
-            if val is '1':
+            if val is "1":
                 self.circ.x(indices[index])
-
 
     def _toffoli(self, x, y, z):
         """
         Implement the toffoli gate using 1 and 2 qubit gates
         """
         self.circ.h(z)
-        self.circ.cx(y,z)
+        self.circ.cx(y, z)
         self.circ.tdg(z)
-        self.circ.cx(x,z)
+        self.circ.cx(x, z)
         self.circ.t(z)
-        self.circ.cx(y,z)
+        self.circ.cx(y, z)
         self.circ.t(y)
         self.circ.tdg(z)
-        self.circ.cx(x,z)
-        self.circ.cx(x,y)
+        self.circ.cx(x, z)
+        self.circ.cx(x, y)
         self.circ.t(z)
         self.circ.h(z)
         self.circ.t(x)
         self.circ.tdg(y)
-        self.circ.cx(x,y)
-
+        self.circ.cx(x, y)
 
     def _MAJ(self, x, y, z):
         """
         Implement the MAJ (Majority) gate described in Cuccaro, Draper, Kutin,
         Moulton.
         """
-        self.circ.cx(z,y)
-        self.circ.cx(z,x)
+        self.circ.cx(z, y)
+        self.circ.cx(z, x)
 
         if self.use_toffoli:
-            self.circ.ccx(x,y,z)
+            self.circ.ccx(x, y, z)
         else:
             # use a decomposed version of toffoli
-            self._toffoli(x,y,z)
-
+            self._toffoli(x, y, z)
 
     def _UMA(self, x, y, z):
         """
@@ -148,16 +154,15 @@ class RCAdder:
         Draper, Kutin, Moulton.
         """
         self.circ.x(y)
-        self.circ.cx(x,y)
+        self.circ.cx(x, y)
         if self.use_toffoli:
-            self.circ.ccx(x,y,z)
+            self.circ.ccx(x, y, z)
         else:
             # use a decomposed version of toffoli
-            self._toffoli(x,y,z)
+            self._toffoli(x, y, z)
         self.circ.x(y)
-        self.circ.cx(z,x)
-        self.circ.cx(z,y)
-
+        self.circ.cx(z, x)
+        self.circ.cx(z, y)
 
     def gen_circuit(self):
         """
@@ -168,24 +173,24 @@ class RCAdder:
         QuantumCircuit
             QuantumCircuit object of size self.nq
         """
-        high_bit_index = self.nq-1
+        high_bit_index = self.nq - 1
 
         # initialize the a and b registers
-        a_indices = [2*i+2 for i in range(self.nbits)]
-        b_indices = [2*i+1 for i in range(self.nbits)]
+        a_indices = [2 * i + 2 for i in range(self.nbits)]
+        b_indices = [2 * i + 1 for i in range(self.nbits)]
         for index_list, value in zip([a_indices, b_indices], [self.a, self.b]):
             self._initialize_value(index_list, value)
 
         # compute the carry bits, c_i, in order using the MAJ ladder
         for a_i in a_indices:
-            self._MAJ(a_i-2, a_i-1, a_i)
+            self._MAJ(a_i - 2, a_i - 1, a_i)
 
         # write the final carry bit value to the high bit register
         self.circ.cx(a_indices[-1], high_bit_index)
 
         # erase the carry bits in reverse order using the UMA ladder
         for a_i in reversed(a_indices):
-            self._UMA(a_i-2, a_i-1, a_i)
+            self._UMA(a_i - 2, a_i - 1, a_i)
 
         if self.measure:
             # measure the circuit
@@ -194,8 +199,7 @@ class RCAdder:
         return self.circ
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     adder = RCAdder(nbits=6, a=0, b=0, use_toffoli=True, measure=True)
     circ = adder.gen_circuit()
     print(circ)
-

@@ -28,7 +28,9 @@ class BV:
     def __init__(self, secret=None, barriers=True, measure=False, regname=None):
 
         if secret is None:
-            raise Exception('Provide a secret bitstring for the Bernstein-Vazirani circuit, example: 001101')
+            raise Exception(
+                "Provide a secret bitstring for the Bernstein-Vazirani circuit, example: 001101"
+            )
         else:
             if type(secret) is int:
                 self.secret = str(secret)
@@ -42,9 +44,9 @@ class BV:
 
         # create a QuantumCircuit object with 1 extra qubit
         if regname is None:
-            self.qr = QuantumRegister(self.nq+1)
+            self.qr = QuantumRegister(self.nq + 1)
         else:
-            self.qr = QuantumRegister(self.nq+1, name=regname)
+            self.qr = QuantumRegister(self.nq + 1, name=regname)
         self.circ = QuantumCircuit(self.qr)
 
         # add ClassicalRegister if measure is True
@@ -53,9 +55,8 @@ class BV:
             self.circ.add_register(self.cr)
 
         # add the extra ancilla qubit
-        #self.anc = QuantumRegister(1, 'anc')
-        #self.circ.add_register(self.anc)
-
+        # self.anc = QuantumRegister(1, 'anc')
+        # self.circ.add_register(self.anc)
 
     def gen_circuit(self):
         """
@@ -72,14 +73,14 @@ class BV:
 
         # create initial superposition
         self.circ.h(self.qr)
-        #self.circ.h(self.anc)
+        # self.circ.h(self.anc)
 
         # implement the black box oracle
         # for every bit that is 1 in the secret, place a CNOT gate
         # with control qr[i] and target anc[0]
         # (secret is little endian - index 0 is at the top of the circuit)
         for i, bit in enumerate(self.secret[::-1]):
-            if bit is '1':
+            if bit is "1":
                 self.circ.cx(self.qr[i], self.qr[-1])
 
         # add barriers
@@ -88,13 +89,10 @@ class BV:
 
         # collapse superposition
         self.circ.h(self.qr)
-        #self.circ.h(self.anc)
+        # self.circ.h(self.anc)
 
         # measure qubit register
         if self.measure:
             self.circ.measure(self.qr[:-1], self.cr)
 
         return self.circ
-
-
-

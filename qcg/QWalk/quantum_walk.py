@@ -50,11 +50,10 @@ class QWALK:
         self.circ = QuantumCircuit(self.qr)
 
         # Add the r and 0 ancilla registers
-        self.ancR = QuantumRegister(1, 'ancR')
-        self.anc0 = QuantumRegister(1, 'anc0')
+        self.ancR = QuantumRegister(1, "ancR")
+        self.anc0 = QuantumRegister(1, "anc0")
         self.circ.add_register(self.ancR)
         self.circ.add_register(self.anc0)
-
 
     def gen_coloring(self):
         """
@@ -65,18 +64,15 @@ class QWALK:
 
         self.k = 4
 
-
     def Vc(self, c):
         """
         Apply the Vc gate to the circuit
         """
 
-
     def evolve_T(self, t):
         """
         Simulate the evolution of exp(-iTt)
         """
-
 
     def gen_circuit(self):
         """
@@ -97,6 +93,3 @@ class QWALK:
             self.Vc(c)
 
         return self.circ
-
-
-
