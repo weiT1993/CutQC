@@ -1,6 +1,6 @@
 import argparse, pickle, subprocess
 
-from qiskit_helper_functions.non_ibmq_functions import evaluate_circ
+from helper_functions.non_ibmq_functions import evaluate_circ
 
 from cutqc.evaluator import modify_subcircuit_instance, mutate_measurement_basis, measure_prob
 

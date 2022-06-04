@@ -32,11 +32,7 @@ conda install gurobi
 ```
 3. Install required packages:
 ```
-pip install numpy qiskit matplotlib pydot scipy tqdm pylatexenc scikit-learn tensorflow
-```
-Download and install the latest [Qiskit helper functions](https://github.com/weiT1993/qiskit_helper_functions).
-```
-pip install . --use-feature=in-tree-build
+pip install numpy qiskit matplotlib pydot scipy tqdm pylatexenc scikit-learn tensorflow networkx
 ```
 
 ## Example Code

@@ -2,10 +2,9 @@ import itertools, copy, pickle, subprocess
 from time import perf_counter
 import numpy as np
 
-from qiskit_helper_functions.non_ibmq_functions import read_dict
-from qiskit_helper_functions.non_ibmq_functions import evaluate_circ
-from qiskit_helper_functions.conversions import quasi_to_real
-from qiskit_helper_functions.metrics import MSE
+from helper_functions.non_ibmq_functions import evaluate_circ
+from helper_functions.conversions import quasi_to_real
+from helper_functions.metrics import MSE
 
 from cutqc.evaluator import get_num_workers
 from cutqc.graph_contraction import GraphContractor

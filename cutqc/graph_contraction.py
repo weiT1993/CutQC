@@ -43,10 +43,14 @@ class GraphContractor(object):
 		for edge_bases in itertools.product(['I','X','Y','Z'],repeat=len(edges)):
 			self.compute_graph.assign_bases_to_edges(edge_bases=edge_bases,edges=edges)
 			summation_term = []
+			cumulative_len = 1
 			for subcircuit_idx in self.smart_order:
 				subcircuit_entry_init_meas = self.compute_graph.get_init_meas(subcircuit_idx=subcircuit_idx)
 				subcircuit_entry_prob = self.subcircuit_entry_probs[subcircuit_idx][subcircuit_entry_init_meas]
 				summation_term.append(subcircuit_entry_prob)
+				cumulative_len *= len(subcircuit_entry_prob)
+				self.overhead['multiplications'] += cumulative_len
+			self.overhead['multiplications'] -= len(summation_term[0])
 			dataset_elem = tf.data.Dataset.from_tensors(tuple(summation_term))
 			if dataset is None:
 				dataset = dataset_elem
@@ -64,9 +68,8 @@ class GraphContractor(object):
 			if reconstructed_prob is None:
 				reconstructed_prob = x
 			else:
+				self.overhead['additions'] += len(x)
 				reconstructed_prob += x
-		# Reduce runs slow, don't know hwy
-		# reconstructed_prob = dataset.reduce(np.zeros(2**self.num_qubits,dtype=np.float32),lambda x,y:x+y)
 		reconstructed_prob = tf.math.scalar_mul(1/2**self.num_cuts,reconstructed_prob).numpy()
 		self.times['compute'] = perf_counter() - compute_begin
 		return reconstructed_prob

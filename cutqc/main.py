@@ -2,7 +2,7 @@ import subprocess, os
 from time import perf_counter
 
 from cutqc.helper_fun import check_valid, add_times
-from cutqc.cutter import find_cuts, cut_circuit
+from cutqc.cutter import find_cuts
 from cutqc.evaluator import run_subcircuit_instances, attribute_shots
 from cutqc.post_process_helper import generate_subcircuit_entries, generate_compute_graph
 from cutqc.dynamic_definition import DynamicDefinition, full_verify
@@ -56,10 +56,7 @@ class CutQC:
             print('width = %d depth = %d size = %d -->'%(self.circuit.num_qubits,self.circuit.depth(),self.circuit.num_nonlocal_gates()))
             print(self.cutter_constraints)
         cutter_begin = perf_counter()
-        if 'subcircuit_vertices' not in self.cutter_constraints:
-            cut_solution = find_cuts(**self.cutter_constraints,circuit=self.circuit,verbose=self.verbose)
-        else:
-            cut_solution = cut_circuit(**self.cutter_constraints,circuit=self.circuit,verbose=self.verbose)
+        cut_solution = find_cuts(**self.cutter_constraints,circuit=self.circuit,verbose=self.verbose)
         for field in cut_solution:
             self.__setattr__(field,cut_solution[field])
         if 'complete_path_map' in cut_solution:

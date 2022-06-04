@@ -3,7 +3,7 @@ import numpy as np
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.circuit.library.standard_gates import HGate, SGate, SdgGate, XGate
 
-from qiskit_helper_functions.non_ibmq_functions import find_process_jobs, scrambled
+from helper_functions.non_ibmq_functions import find_process_jobs, scrambled
 
 def get_num_workers(num_jobs,ram_required_per_worker):
     ram_avail = psutil.virtual_memory().available/1024**3

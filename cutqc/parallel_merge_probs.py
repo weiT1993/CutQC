@@ -1,7 +1,7 @@
 import argparse, pickle, itertools
 import numpy as np
 
-from qiskit_helper_functions.non_ibmq_functions import find_process_jobs, scrambled
+from helper_functions.non_ibmq_functions import find_process_jobs, scrambled
 
 def merge_prob_vector(unmerged_prob_vector, qubit_states):
     num_active = qubit_states.count('active')
