@@ -1,4 +1,5 @@
 from qiskit.dagcircuit.dagcircuit import DAGCircuit
+from qiskit.dagcircuit import DAGOpNode
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 import gurobipy as gp
 import math
@@ -319,13 +320,15 @@ def read_circ(circuit):
     for vertex in dag.topological_op_nodes():
         if len(vertex.qargs) != 2:
             raise Exception("vertex does not have 2 qargs!")
+        
         arg0, arg1 = vertex.qargs
+        
         vertex_name = "%s[%d]%d %s[%d]%d" % (
-            arg0.register.name,
-            arg0.index,
+            arg0._register.name,
+            arg0._index,
             qubit_gate_counter[arg0],
-            arg1.register.name,
-            arg1.index,
+            arg1._register.name,
+            arg1._index,
             qubit_gate_counter[arg1],
         )
         qubit_gate_counter[arg0] += 1
@@ -338,7 +341,7 @@ def read_circ(circuit):
             curr_node_id += 1
 
     for u, v, _ in dag.edges():
-        if u.type == "op" and v.type == "op":
+        if isinstance(u, DAGOpNode) and isinstance(v, DAGOpNode):
             u_id = vertex_ids[id(u)]
             v_id = vertex_ids[id(v)]
             edges.append((u_id, v_id))
@@ -380,7 +383,7 @@ def cuts_parser(cuts, circ):
 
         wire = None
         for qubit in circ.qubits:
-            if qubit.register.name == qubit_cut[0].split("[")[0] and qubit.index == int(
+            if qubit._register.name == qubit_cut[0].split("[")[0] and qubit._index == int(
                 qubit_cut[0].split("[")[1].split("]")[0]
             ):
                 wire = qubit
@@ -433,8 +436,8 @@ def subcircuits_parser(subcircuit_gates, circuit):
         gate_depth_encoding = ""
         for qarg in op_node.qargs:
             gate_depth_encoding += "%s[%d]%d " % (
-                qarg.register.name,
-                qarg.index,
+                qarg._register.name,
+                qarg._index,
                 qubit_allGate_depths[qarg],
             )
         gate_depth_encoding = gate_depth_encoding[:-1]
@@ -445,8 +448,8 @@ def subcircuits_parser(subcircuit_gates, circuit):
             MIP_gate_depth_encoding = ""
             for qarg in op_node.qargs:
                 MIP_gate_depth_encoding += "%s[%d]%d " % (
-                    qarg.register.name,
-                    qarg.index,
+                    qarg._register.name,
+                    qarg._index,
                     qubit_2qGate_depths[qarg],
                 )
                 qubit_2qGate_depths[qarg] += 1

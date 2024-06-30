@@ -1,5 +1,6 @@
 import sys
-from qiskit import Aer, execute
+from qiskit import transpile
+from qiskit_aer import Aer
 from quantum_circuit_generator.generators import gen_hwea
 
 n = 6
@@ -7,7 +8,9 @@ circ = gen_hwea(n, 1)
 print(circ)
 
 simulator = Aer.get_backend("statevector_simulator")
-result = execute(circ, simulator).result()
+
+new_circuit = transpile(circ, simulator)
+result = simulator.run(new_circuit).result()
 sv = result.get_statevector(circ)
 print(sv)
 

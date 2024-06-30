@@ -1,6 +1,6 @@
 from qiskit import IBMQ
 from qiskit.providers.jobstatus import JobStatus
-from qiskit.providers.aer.noise import NoiseModel
+from qiskit_aer.noise import NoiseModel
 from qiskit.transpiler import CouplingMap
 from datetime import timedelta, datetime
 from pytz import timezone
