@@ -38,7 +38,8 @@ if __name__ == "__main__":
     cutqc.cut()
     if not cutqc.has_solution:
         raise Exception("The input circuit and constraints have no viable cuts")
-
+    
+    # add comment
     cutqc.evaluate(eval_mode="sv", num_shots_fn=None)
     cutqc.build(mem_limit=32, recursion_depth=1)
     print("Cut: %d recursions." % (cutqc.num_recursions))
