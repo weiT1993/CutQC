@@ -47,23 +47,68 @@ class GraphContractor(object):
         )
         self.overhead = {"additions": 0, "multiplications": 0}
         self.reconstructed_prob = self.compute()
+        # self.reconstructed_prob = self.old_compute()
+
+    def old_compute(self):
+        edges = self.compute_graph.get_edges(from_node=None, to_node=None)
+
+        make_dataset_begin = perf_counter()
+        dataset = None
+        for edge_bases in itertools.product(["I", "X", "Y", "Z"], repeat=len(edges)):
+            self.compute_graph.assign_bases_to_edges(edge_bases=edge_bases, edges=edges)
+            summation_term = []
+            cumulative_len = 1
+            for subcircuit_idx in self.smart_order:
+                subcircuit_entry_prob = get_subcircuit_entry_prob(self, subcircuit_idx)
+                summation_term.append(subcircuit_entry_prob)
+                cumulative_len *= len(subcircuit_entry_prob)
+                self.overhead["multiplications"] += cumulative_len
+            self.overhead["multiplications"] -= len(summation_term[0])
+            dataset_elem = tf.data.Dataset.from_tensors(tuple(summation_term))
+            if dataset is None:
+                dataset = dataset_elem
+            else:
+                dataset = dataset.concatenate(dataset_elem)
+        self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
+        dataset = dataset.batch(
+            batch_size=1, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False
+        )
+        self.times["make_dataset"] = perf_counter() - make_dataset_begin
+
+        compute_begin = perf_counter()
+        dataset = dataset.map(
+            compute_summation_term,
+            num_parallel_calls=tf.data.AUTOTUNE,
+            deterministic=False,
+        )
+
+        reconstructed_prob = None
+        for x in dataset:
+            if reconstructed_prob is None:
+                reconstructed_prob = x
+            else:
+                self.overhead["additions"] += len(reconstructed_prob)
+                reconstructed_prob += x
+        reconstructed_prob = tf.math.scalar_mul(
+            1 / 2**self.num_cuts, reconstructed_prob
+        ).numpy()
+        self.times["compute"] = perf_counter() - compute_begin
+        return reconstructed_prob
 
     def compute(self):
         edges = self.compute_graph.get_edges(from_node=None, to_node=None)
 
         partial_compute_begin = perf_counter()
-        reconstructed_prob = None
+        reconstructed_prob = tf.zeros_like(get_paulibase_probability(self, ["I"] * len(edges), edges))
         counter = 0
+
+        # Compute Kronecker sums over the different basis
         for edge_bases in itertools.product(["I", "X", "Y", "Z"], repeat=len(edges)):
             summation_term = get_paulibase_probability(self, edge_bases, edges)
-
-            if reconstructed_prob is None:
-                reconstructed_prob = summation_term
-            else:
-                reconstructed_prob = tf.add(reconstructed_prob, summation_term)
-                self.overhead["additions"] += len(summation_term)
+            reconstructed_prob = tf.add(reconstructed_prob, summation_term)
+            self.overhead["additions"] += len(summation_term)
             counter += 1
-
+            
         self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
         partial_compute_time = perf_counter() - partial_compute_begin
 
