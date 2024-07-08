@@ -140,6 +140,8 @@ class CutQC:
             subcircuits=self.subcircuits,
             dd_bins=self.approximation_bins,
         )
+        
+        print (f"Approximate Error: {self.approximation_error}")
         print("verify took %.3f" % (perf_counter() - verify_begin))
 
     def clean_data(self):

@@ -33,15 +33,24 @@ if __name__ == "__main__":
             "max_cuts": 10,
             "num_subcircuits": [2, 3],
         },
-        verbose=True,
+        verbose=False,
     )
+    
+    print ("-- Cut -- ")    
     cutqc.cut()
     if not cutqc.has_solution:
         raise Exception("The input circuit and constraints have no viable cuts")
+    print ("-- Done Cutting -- \n")    
     
-    # add comment
+    print ("-- Evaluate --")
     cutqc.evaluate(eval_mode="sv", num_shots_fn=None)
+    print ("-- Done Evaluating -- \n")
+
+    print ("-- Build --")
     cutqc.build(mem_limit=32, recursion_depth=1)
+    print ("-- Done Building -- \n")
+    
+    cutqc.verify ()
     print("Cut: %d recursions." % (cutqc.num_recursions))
-    print(cutqc.approximation_bins)
+    # print(cutqc.approximation_bins)
     cutqc.clean_data()
