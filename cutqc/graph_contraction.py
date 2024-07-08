@@ -46,39 +46,36 @@ class GraphContractor(object):
             key=lambda subcircuit_idx: self.subcircuit_entry_lengths[subcircuit_idx],
         )
         self.overhead = {"additions": 0, "multiplications": 0}
-        self.reconstructed_prob = self.compute()
-        # self.reconstructed_prob = self.old_compute()
+        # self.reconstructed_prob = self.compute()
+        self.reconstructed_prob = self.old_compute()
 
     def old_compute(self):
         edges = self.compute_graph.get_edges(from_node=None, to_node=None)
 
         make_dataset_begin = perf_counter()
         dataset = None
+        
         for edge_bases in itertools.product(["I", "X", "Y", "Z"], repeat=len(edges)):
             self.compute_graph.assign_bases_to_edges(edge_bases=edge_bases, edges=edges)
-            summation_term = []
-            cumulative_len = 1
-            for subcircuit_idx in self.smart_order:
-                subcircuit_entry_prob = get_subcircuit_entry_prob(self, subcircuit_idx)
-                summation_term.append(subcircuit_entry_prob)
-                cumulative_len *= len(subcircuit_entry_prob)
-                self.overhead["multiplications"] += cumulative_len
+    
+            summation_term = get_subcircuit_entry_terms (self)
+
             self.overhead["multiplications"] -= len(summation_term[0])
-            dataset_elem = tf.data.Dataset.from_tensors(tuple(summation_term))
+            dataset_elem = tf.data.Dataset.from_tensors(tuple ((summation_term)))
             if dataset is None:
                 dataset = dataset_elem
             else:
                 dataset = dataset.concatenate(dataset_elem)
+
         self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
-        dataset = dataset.batch(
-            batch_size=1, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False
+        dataset = dataset.batch (
+            batch_size=1, deterministic=False
         )
         self.times["make_dataset"] = perf_counter() - make_dataset_begin
 
         compute_begin = perf_counter()
         dataset = dataset.map(
             compute_summation_term,
-            num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=False,
         )
 
@@ -139,6 +136,17 @@ def get_subcircuit_entry_prob(gc: GraphContractor, subcircuit_idx: int):
     subcircuit_entry_init_meas = gc.compute_graph.get_init_meas(subcircuit_idx)
     return gc.subcircuit_entry_probs[subcircuit_idx][subcircuit_entry_init_meas]
 
+def get_subcircuit_entry_terms (gc: GraphContractor):
+        summation_term = []
+        cumulative_len = 1
+        
+        for subcircuit_idx in gc.smart_order:
+            subcircuit_entry_prob = get_subcircuit_entry_prob(gc, subcircuit_idx)
+            summation_term.append(subcircuit_entry_prob)
+            cumulative_len *= len(subcircuit_entry_prob)
+            gc.overhead["multiplications"] += cumulative_len
+
+        return summation_term
 
 def get_paulibase_probability(gc: GraphContractor, edge_bases: tuple, edges: list):
     """
