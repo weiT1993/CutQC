@@ -18,8 +18,7 @@ def compute_summation_term(*argv):
                 tf.tensordot(summation_term, subcircuit_entry_prob, axes=0), [-1]
             )
     return summation_term
-
-
+                
 class GraphContractor(object):
     def __init__(self, compute_graph, subcircuit_entry_probs, num_cuts) -> None:
         super().__init__()
@@ -44,54 +43,59 @@ class GraphContractor(object):
         )
         self.overhead = {"additions": 0, "multiplications": 0}
         self.reconstructed_prob = self.compute()
-
+        
     def compute(self):
         edges = self.compute_graph.get_edges(from_node=None, to_node=None)
 
-        make_dataset_begin = perf_counter()
-        dataset = None
+        partial_compute_begin = perf_counter()
+        reconstructed_prob = None
+        counter = 0
         for edge_bases in itertools.product(["I", "X", "Y", "Z"], repeat=len(edges)):
             self.compute_graph.assign_bases_to_edges(edge_bases=edge_bases, edges=edges)
-            summation_term = []
-            cumulative_len = 1
+            summation_term = None
             for subcircuit_idx in self.smart_order:
-                subcircuit_entry_init_meas = self.compute_graph.get_init_meas(
-                    subcircuit_idx=subcircuit_idx
-                )
-                subcircuit_entry_prob = self.subcircuit_entry_probs[subcircuit_idx][
-                    subcircuit_entry_init_meas
-                ]
-                summation_term.append(subcircuit_entry_prob)
-                cumulative_len *= len(subcircuit_entry_prob)
-                self.overhead["multiplications"] += cumulative_len
-            self.overhead["multiplications"] -= len(summation_term[0])
-            dataset_elem = tf.data.Dataset.from_tensors(tuple(summation_term))
-            if dataset is None:
-                dataset = dataset_elem
-            else:
-                dataset = dataset.concatenate(dataset_elem)
-        self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
-        dataset = dataset.batch(
-            batch_size=1, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False
-        )
-        self.times["make_dataset"] = perf_counter() - make_dataset_begin
-
-        compute_begin = perf_counter()
-        dataset = dataset.map(
-            compute_summation_term,
-            num_parallel_calls=tf.data.AUTOTUNE,
-            deterministic=False,
-        )
-
-        reconstructed_prob = None
-        for x in dataset:
+                subcircuit_entry_prob = get_subcircuit_entry_prob (self, subcircuit_idx)
+                if summation_term is None:
+                    summation_term = subcircuit_entry_prob
+                else:
+                    summation_term = tf.reshape(
+                        tf.tensordot(summation_term, subcircuit_entry_prob, axes=0),
+                        [-1],
+                    )
+                    self.overhead["multiplications"] += len(summation_term)
             if reconstructed_prob is None:
-                reconstructed_prob = x
+                reconstructed_prob = summation_term
             else:
-                self.overhead["additions"] += len(reconstructed_prob)
-                reconstructed_prob += x
+                reconstructed_prob += summation_term
+                self.overhead["additions"] += len(summation_term)
+            counter += 1
+            
+            
+        self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
+        partial_compute_time = perf_counter() - partial_compute_begin
+
+        scale_begin = perf_counter()
         reconstructed_prob = tf.math.scalar_mul(
             1 / 2**self.num_cuts, reconstructed_prob
         ).numpy()
-        self.times["compute"] = perf_counter() - compute_begin
+        scale_time = perf_counter() - scale_begin
+
+        self.times["compute"] = (
+            partial_compute_time / counter * 4 ** len(edges) + scale_time
+        )
+        self.overhead["additions"] = int(
+            self.overhead["additions"] / counter * 4 ** len(edges)
+        )
+        self.overhead["multiplications"] = int(
+            self.overhead["multiplications"] / counter * 4 ** len(edges)
+        )
         return reconstructed_prob
+
+
+def get_subcircuit_entry_prob (gc : GraphContractor, subcircuit_idx : int):
+        '''
+        Returns The subcircuit Entry Probability for the subcircuit at index 
+        'SUBCIRCUIT_IDX' of the graph contractor object 'GC'.
+        '''
+        subcircuit_entry_init_meas = gc.compute_graph.get_init_meas(subcircuit_idx)        
+        return gc.subcircuit_entry_probs[subcircuit_idx][subcircuit_entry_init_meas]

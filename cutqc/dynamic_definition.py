@@ -326,9 +326,14 @@ def full_verify(full_circuit, complete_path_map, subcircuits, dd_bins):
     real_probability = quasi_to_real(
         quasiprobability=reconstructed_prob, mode="nearest"
     )
+    print (f"MSE: {MSE(target=ground_truth, obs=real_probability)}")
     approximation_error = (
         MSE(target=ground_truth, obs=real_probability)
         * 2**full_circuit.num_qubits
         / np.linalg.norm(ground_truth) ** 2
     )
+    
+    print (f"Reconstructed Error: {reconstructed_prob}")
+    print (f"Real Error: {real_probability}")
+    
     return reconstructed_prob, approximation_error

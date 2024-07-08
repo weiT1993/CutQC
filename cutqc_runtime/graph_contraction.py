@@ -60,9 +60,8 @@ class GraphContractor(object):
             self.compute_graph.assign_bases_to_edges(edge_bases=edge_bases, edges=edges)
             summation_term = None
             for subcircuit_idx in self.smart_order:
-                subcircuit_entry_prob = self.pseudo_subcircuit_entry_probs[
-                    subcircuit_idx
-                ]
+                subcircuit_entry_prob = self.pseudo_subcircuit_entry_probs[subcircuit_idx]
+                
                 if summation_term is None:
                     summation_term = subcircuit_entry_prob
                 else:
