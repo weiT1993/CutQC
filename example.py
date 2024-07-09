@@ -3,14 +3,9 @@ import os, logging
 
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-# Comment this line if using GPU
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Comment this line if using GPU
 
-# from cutqc_runtime.main import CutQC # Use this just to benchmark the runtime
-
-from cutqc.main import CutQC # Use this for exact computation
-# from cutqc_runtime.main import CutQC # Use this for exact computation
-
+from cutqc.main import CutQC 
 from helper_functions.benchmarks import generate_circ
 
 if __name__ == "__main__":
@@ -29,7 +24,6 @@ if __name__ == "__main__":
         circuit=circuit,
         cutter_constraints={
             "max_subcircuit_width": 10,
-            # "max_subcircuit_width": math.ceil(circuit.num_qubits / 4 * 3),
             "max_subcircuit_cuts": 10,
             "subcircuit_size_imbalance": 2,
             "max_cuts": 10,
