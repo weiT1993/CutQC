@@ -25,11 +25,7 @@ conda create -n cutqc python=3.8
 conda deactivate && conda activate cutqc
 ```
 2. CutQC uses the [Gurobi](https://www.gurobi.com) solver. Install Gurobi and obtain a license.
-To install Gurobi for Python, follow the [instructions](https://www.gurobi.com/documentation/9.1/quickstart_linux/cs_python_installation_opt.html). Here we copy paste the up-to-date command as of 05/10/2021 for convenience.
-```
-conda config --add channels https://conda.anaconda.org/gurobi
-conda install gurobi
-```
+To install Gurobi for Python, follow the [instructions](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer).
 3. Install required packages:
 ```
 pip install -r requirements.txt

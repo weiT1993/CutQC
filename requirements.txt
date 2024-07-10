@@ -8,3 +8,4 @@ pylatexenc
 scikit-learn
 tensorflow
 networkx
+gurobipy
