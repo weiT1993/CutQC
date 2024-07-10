@@ -7,8 +7,9 @@ circ_dict (dict): circ (not transpiled), shots, evaluator_info (optional)
 import math, copy, random, pickle
 import numpy as np
 from qiskit.compiler import transpile, assemble
-from qiskit import Aer, execute
-from qiskit.providers.aer import QasmSimulator
+from qiskit import transpile
+from qiskit_aer import Aer
+from qiskit_aer import QasmSimulator
 from time import time
 from datetime import datetime
 
@@ -282,13 +283,17 @@ class Scheduler:
                 mapped_circuit = qc
             self.circ_dict[key]["mapped_circuit"] = mapped_circuit
 
-            simulation_result = execute(
-                value["mapped_circuit"],
-                Aer.get_backend("qasm_simulator"),
-                noise_model=noise_model,
-                shots=value["shots"],
-            ).result()
-
+            backend = Aer.get_backend("qasm_simulator")
+            new_circuit = transpile (value["mapped_circuit"], backend)
+            
+            simulation_result = backend.run (new_circuit, shots=value["shots"], noise_model=noise_model).result()
+            # simulation_result = execute(
+            #     value["mapped_circuit"],
+        
+            #     noise_model=noise_model,
+            #     shots=value["shots"],
+            # ).result()
+            
             counts = simulation_result.get_counts(0)
             counts = dict_to_array(distribution_dict=counts, force_prob=True)
             self.circ_dict[key]["%s|sim" % device_name] = counts

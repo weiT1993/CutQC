@@ -147,10 +147,10 @@ class Qgrid:
         qb_index = self.get_index(grid_loc)
         if qb_index not in reserved_qubits:
             gate = self.grid[grid_loc[0]][grid_loc[1]].random_gate()
-            if gate is "Y":
+            if gate == "Y":
                 # Apply a sqrt-Y gate to qubit at qb_index
                 self.circ.ry(math.pi / 2, self.qreg[qb_index])
-            elif gate is "X":
+            elif gate == "X":
                 # Apply a sqrt-X gate to qubit at qb_index
                 self.circ.rx(math.pi / 2, self.qreg[qb_index])
             else:
