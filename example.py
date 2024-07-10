@@ -1,16 +1,14 @@
-import os, math
-import os, logging
-
-logging.disable(logging.WARNING)
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-# Comment this line if using GPU
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
+import os, math, logging
 # from cutqc_runtime.main import CutQC # Use this just to benchmark the runtime
 
 from cutqc.main import CutQC # Use this for exact computation
 
 from helper_functions.benchmarks import generate_circ
+
+logging.disable(logging.WARNING)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
+# Comment this line if using GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 if __name__ == "__main__":
     circuit_type = "supremacy"

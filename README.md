@@ -32,7 +32,7 @@ conda install gurobi
 ```
 3. Install required packages:
 ```
-pip install numpy qiskit matplotlib pydot scipy tqdm pylatexenc scikit-learn tensorflow networkx
+pip install -r requirements.txt
 ```
 
 ## Example Code

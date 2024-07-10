@@ -1,0 +1,10 @@
+numpy
+qiskit
+matplotlib
+pydot
+scipy
+tqdm
+pylatexenc
+scikit-learn
+tensorflow
+networkx
