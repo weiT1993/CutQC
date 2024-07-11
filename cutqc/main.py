@@ -11,7 +11,6 @@ from cutqc.post_process_helper import (
 )
 from cutqc.dynamic_definition import DynamicDefinition, full_verify
 
-
 class CutQC:
     """
     The main module for CutQC
@@ -145,13 +144,13 @@ class CutQC:
         print (f"Approximate Error: {self.approximation_error}")
         print("verify took %.3f" % (perf_counter() - verify_begin))
 
-    def save_cutqc_obj (self, filename):
+    def save_cutqc_obj (self, filename : str) -> None:
         '''
-        Save CutQC instance as a pickle file
+        Saves CutQC instance as the pickle file 'FILENAME'
         '''
         with open (filename, 'wb') as outp:
             pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
-
+    
     def clean_data(self):
         subprocess.run(["rm", "-r", self.tmp_data_folder])
 
@@ -208,3 +207,13 @@ class CutQC:
         subprocess.call(
             "rm %s/subcircuit*instance*.pckl" % self.tmp_data_folder, shell=True
         )
+
+def load_cutqc_obj (filename : str) -> CutQC:
+    '''
+    Returns the cutqc object instance stored in the pickle file 'FILENAME'
+    '''
+    res = None
+    with open (filename, 'rb') as inp:
+        res = pickle.load(inp)
+        
+    return res

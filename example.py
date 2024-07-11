@@ -49,4 +49,4 @@ if __name__ == "__main__":
     cutqc.verify ()
     print("Cut: %d recursions." % (cutqc.num_recursions))
     # print(cutqc.approximation_bins)
-    cutqc.clean_data()
+    # cutqc.clean_data()
