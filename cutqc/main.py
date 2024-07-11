@@ -1,4 +1,5 @@
 import subprocess, os
+import pickle
 from time import perf_counter
 
 from cutqc.helper_fun import check_valid, add_times
@@ -143,6 +144,13 @@ class CutQC:
         
         print (f"Approximate Error: {self.approximation_error}")
         print("verify took %.3f" % (perf_counter() - verify_begin))
+
+    def save_cutqc_obj (self, filename):
+        '''
+        Save CutQC instance as a pickle file
+        '''
+        with open (filename, 'wb') as outp:
+            pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
 
     def clean_data(self):
         subprocess.run(["rm", "-r", self.tmp_data_folder])
