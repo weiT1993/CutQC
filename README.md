@@ -21,8 +21,8 @@ Use this mode if you are just interested in the runtime performance of CutQC.
 ## Installation
 1. Make a Python virtual environment:
 ```
-conda create -n cutqc python=3.8
-conda deactivate && conda activate cutqc
+python3 -m venv ~/venvs/cutqc
+source ~/venvs/cutqc/bin/activate
 ```
 2. CutQC uses the [Gurobi](https://www.gurobi.com) solver. Install Gurobi and obtain a license.
 To install Gurobi for Python, follow the [instructions](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer).
