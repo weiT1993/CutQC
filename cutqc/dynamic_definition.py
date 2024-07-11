@@ -155,9 +155,9 @@ class DynamicDefinition(object):
                 next_dd_schedule["subcircuit_state"][subcircuit_idx]
             ):
                 if qubit_state == "active":
-                    next_dd_schedule["subcircuit_state"][subcircuit_idx][
-                        qubit_ctr
-                    ] = int(binary_bin_idx[binary_state_idx_ptr])
+                    next_dd_schedule["subcircuit_state"][subcircuit_idx][qubit_ctr] = (
+                        int(binary_bin_idx[binary_state_idx_ptr])
+                    )
                     binary_state_idx_ptr += 1
         next_dd_schedule["upper_bin"] = (recursion_layer, bin_id)
 
@@ -237,9 +237,9 @@ class DynamicDefinition(object):
             )
             for subcircuit_idx in rank_merged_subcircuit_entry_probs:
                 if subcircuit_idx not in merged_subcircuit_entry_probs:
-                    merged_subcircuit_entry_probs[
-                        subcircuit_idx
-                    ] = rank_merged_subcircuit_entry_probs[subcircuit_idx]
+                    merged_subcircuit_entry_probs[subcircuit_idx] = (
+                        rank_merged_subcircuit_entry_probs[subcircuit_idx]
+                    )
                 else:
                     merged_subcircuit_entry_probs[subcircuit_idx].update(
                         rank_merged_subcircuit_entry_probs[subcircuit_idx]
@@ -302,9 +302,9 @@ def read_dd_bins(subcircuit_out_qubits, dd_bins):
                     ["0", "1"], repeat=num_merged
                 ):
                     for merged_qubit_ctr in range(num_merged):
-                        binary_full_state[
-                            merged_qubit_indices[merged_qubit_ctr]
-                        ] = binary_merged_state[merged_qubit_ctr]
+                        binary_full_state[merged_qubit_indices[merged_qubit_ctr]] = (
+                            binary_merged_state[merged_qubit_ctr]
+                        )
                     full_state = "".join(binary_full_state)[::-1]
                     full_state_idx = int(full_state, 2)
                     reconstructed_prob[full_state_idx] = average_state_prob

@@ -284,16 +284,18 @@ class Scheduler:
             self.circ_dict[key]["mapped_circuit"] = mapped_circuit
 
             backend = Aer.get_backend("qasm_simulator")
-            new_circuit = transpile (value["mapped_circuit"], backend)
-            
-            simulation_result = backend.run (new_circuit, shots=value["shots"], noise_model=noise_model).result()
+            new_circuit = transpile(value["mapped_circuit"], backend)
+
+            simulation_result = backend.run(
+                new_circuit, shots=value["shots"], noise_model=noise_model
+            ).result()
             # simulation_result = execute(
             #     value["mapped_circuit"],
-        
+
             #     noise_model=noise_model,
             #     shots=value["shots"],
             # ).result()
-            
+
             counts = simulation_result.get_counts(0)
             counts = dict_to_array(distribution_dict=counts, force_prob=True)
             self.circ_dict[key]["%s|sim" % device_name] = counts

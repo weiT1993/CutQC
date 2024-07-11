@@ -144,9 +144,9 @@ class DynamicDefinition(object):
                 next_dd_schedule["subcircuit_state"][subcircuit_idx]
             ):
                 if qubit_state == "active":
-                    next_dd_schedule["subcircuit_state"][subcircuit_idx][
-                        qubit_ctr
-                    ] = int(binary_bin_idx[binary_state_idx_ptr])
+                    next_dd_schedule["subcircuit_state"][subcircuit_idx][qubit_ctr] = (
+                        int(binary_bin_idx[binary_state_idx_ptr])
+                    )
                     binary_state_idx_ptr += 1
         next_dd_schedule["upper_bin"] = (recursion_layer, bin_id)
 

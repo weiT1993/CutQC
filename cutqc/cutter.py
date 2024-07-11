@@ -320,9 +320,9 @@ def read_circ(circuit):
     for vertex in dag.topological_op_nodes():
         if len(vertex.qargs) != 2:
             raise Exception("vertex does not have 2 qargs!")
-        
+
         arg0, arg1 = vertex.qargs
-        
+
         vertex_name = "%s[%d]%d %s[%d]%d" % (
             arg0._register.name,
             arg0._index,
@@ -383,9 +383,9 @@ def cuts_parser(cuts, circ):
 
         wire = None
         for qubit in circ.qubits:
-            if qubit._register.name == qubit_cut[0].split("[")[0] and qubit._index == int(
-                qubit_cut[0].split("[")[1].split("]")[0]
-            ):
+            if qubit._register.name == qubit_cut[0].split("[")[
+                0
+            ] and qubit._index == int(qubit_cut[0].split("[")[1].split("]")[0]):
                 wire = qubit
         tmp = 0
         all_Q_gate_idx = None

@@ -23,7 +23,7 @@ def read_dict(filename):
         while 1:
             try:
                 file_content.update(pickle.load(f))
-            except (EOFError):
+            except EOFError:
                 break
         f.close()
     else:

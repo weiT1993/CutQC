@@ -1,7 +1,8 @@
 import os, math, logging
+
 # from cutqc_runtime.main import CutQC # Use this just to benchmark the runtime
 
-from cutqc.main import CutQC # Use this for exact computation
+from cutqc.main import CutQC  # Use this for exact computation
 
 from helper_functions.benchmarks import generate_circ
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     cutqc.cut()
     if not cutqc.has_solution:
         raise Exception("The input circuit and constraints have no viable cuts")
-    
+
     # add comment
     cutqc.evaluate(eval_mode="sv", num_shots_fn=None)
     cutqc.build(mem_limit=32, recursion_depth=1)
