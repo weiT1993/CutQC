@@ -17,10 +17,12 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 if __name__ == "__main__":
     # Retrieve Pickle Filename
     parser = argparse.ArgumentParser ()
-    parser.add_argument ('--filename', default=None, type=str, help='Filename of Pickled CutQC Instance')
+    parser.add_argument ('--filename', default="cutqc_data.pkl", type=str, 
+                         help='Filename of Pickled CutQC Instance')
     args = parser.parse_args ()
     
     # Load Pickled CutQC instance
+    print ("-- Loading CutQC instance from {} -- ".format (args.filename))
     cutqc = load_cutqc_obj (args.filename)
     
     # Initiate Reconstruction and Verify Results

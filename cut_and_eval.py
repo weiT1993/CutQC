@@ -1,3 +1,4 @@
+# Description: Driver Cuts and Evals a circuit. The result is saved as pickelfile
 import os, math
 import os, logging
 
@@ -7,6 +8,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Comment this line if using GPU
 
 from cutqc.main import CutQC 
 from helper_functions.benchmarks import generate_circ
+
+filename = "cutqc_data.pkl"
 
 if __name__ == "__main__":
     circuit_type = "supremacy"
@@ -41,11 +44,10 @@ if __name__ == "__main__":
     print ("-- Evaluate --")
     cutqc.evaluate(eval_mode="sv", num_shots_fn=None)
     print ("-- Done Evaluating -- \n")
-
-    print ("-- Build --")
-    cutqc.build(mem_limit=32, recursion_depth=1)
-    print ("-- Done Building -- \n")
     
-    cutqc.verify ()
-    print("Cut: %d recursions." % (cutqc.num_recursions))
-    cutqc.clean_data()
+    print ("-- Dumping CutQC Object into {} --".format (filename))
+    cutqc.save_cutqc_obj (filename)
+
+
+
+
