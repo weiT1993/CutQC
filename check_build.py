@@ -19,8 +19,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser ()
     parser.add_argument ('--filename', default=None, type=str, help='Filename of Pickled CutQC Instance')
     args = parser.parse_args ()
-    print ("args.filename: {}".format (args.filename))
-    exit ()
+    
     # Load Pickled CutQC instance
     cutqc = load_cutqc_obj (args.filename)
     
