@@ -1,12 +1,11 @@
 import os, math
 import os, logging
+import torch
+from cutqc_runtime.main import CutQC 
+from helper_functions.benchmarks import generate_circ
 
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Comment this line if using GPU
-
-from cutqc.main import CutQC 
-from helper_functions.benchmarks import generate_circ
 
 if __name__ == "__main__":
     circuit_type = "supremacy"
@@ -19,6 +18,7 @@ if __name__ == "__main__":
         connected_only=True,
         seed=None,
     )
+    
     cutqc = CutQC(
         name="%s_%d" % (circuit_type, circuit_size),
         circuit=circuit,
@@ -46,6 +46,6 @@ if __name__ == "__main__":
     cutqc.build(mem_limit=32, recursion_depth=1)
     print ("-- Done Building -- \n")
     
-    cutqc.verify ()
+    # cutqc.verify ()
     print("Cut: %d recursions." % (cutqc.num_recursions))
     cutqc.clean_data()

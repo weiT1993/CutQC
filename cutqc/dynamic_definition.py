@@ -60,7 +60,6 @@ class DynamicDefinition(object):
                 dd_schedule, open("%s/dd_schedule.pckl" % self.data_folder, "wb")
             )
             self.times["get_dd_schedule"] += perf_counter() - get_dd_schedule_begin
-
             merged_subcircuit_entry_probs = self.merge_states_into_bins()
 
             """ Build from the merged subcircuit entries """

@@ -16,9 +16,7 @@ class GraphContractor(object):
         self.num_cuts = num_cuts
         self.subcircuit_entry_lengths = {}
         for subcircuit_idx in subcircuit_entry_probs:
-            first_entry_init_meas = list(subcircuit_entry_probs[subcircuit_idx].keys())[
-                0
-            ]
+            first_entry_init_meas = list(subcircuit_entry_probs[subcircuit_idx].keys())[0]
             length = len(subcircuit_entry_probs[subcircuit_idx][first_entry_init_meas])
             self.subcircuit_entry_lengths[subcircuit_idx] = length
         self.num_qubits = 0
@@ -71,7 +69,6 @@ class GraphContractor(object):
 
 def cg_print (obj):
     print (f"Object Type: {type(obj)}")
-    # print (f"Object: {obj}")
     print (f"Shape: {obj.shape}")
 
 def pad_to_length (arr : np.array, n : int):

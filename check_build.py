@@ -29,4 +29,4 @@ if __name__ == "__main__":
     print ("-- Building Now --")
     cutqc.build(mem_limit=32, recursion_depth=1)
     cutqc.verify ()
-    cutqc.clean_data()
+    # cutqc.clean_data()

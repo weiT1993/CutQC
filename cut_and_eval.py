@@ -4,7 +4,7 @@ import os, logging
 
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1" # Comment this line if using GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1" 
 
 from cutqc.main import CutQC 
 from helper_functions.benchmarks import generate_circ
