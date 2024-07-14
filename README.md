@@ -46,7 +46,7 @@ If you use CutQC in your work, we would appreciate it if you cite our paper:
 Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi. "CutQC: using small quantum computers for large quantum circuit evaluations." In Proceedings of the 26th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, pp. 473-486. 2021.
 
 ## Contact Us
-Please open an issue here. Please reach out to [Wei Tang] (https://www.linkedin.com/in/weitang39/).
+Please open an issue here. Please reach out to [Wei Tang](https://www.linkedin.com/in/weitang39/).
 
 ## TODO
 - [ ] Qubit reorder function
