@@ -30,10 +30,9 @@ class GraphContractor(object):
         self.compute_graph = compute_graph
         self.subcircuit_entry_probs = subcircuit_entry_probs
         self.num_cuts = num_cuts
-        self._get_smart_order ()
+        self._set_smart_order ()
         self.overhead = {"additions": 0, "multiplications": 0}
         
-        # Initiate Graph Contraction
         return self._compute ()
     
     def _compute(self):
@@ -73,7 +72,7 @@ class GraphContractor(object):
         )
         return reconstructed_prob
     
-    def _get_smart_order (self) -> None:
+    def _set_smart_order (self) -> None:
         '''
         Sets the order in which kronecker products are computed in. Specefically 
         order is to sort greedy-subcircuit-order.

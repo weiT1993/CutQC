@@ -12,36 +12,58 @@ from typing import List
 import numpy as np
 import torch
 import torch.distributed as dist
+from cutqc.post_process_helper import ComputeGraph
 
 # TODO: Add support for 'gloo' communication backend (cpu)
 # TODO: Autodetect communication backend 
 # TODO: Make it cleaner node configuration and support for more distributed schedulers other then slurm.
 
+# TODO: Update formating changes from graph_contracton.py to distributed_graph_contraction.py
 class DistributedGraphContractor(object):
-    def __init__(self, compute_graph, subcircuit_entry_probs, num_cuts) -> None:
+    def __init__(self) -> None: 
         super().__init__()
-        self.times = {}
+        self.times = {}            
+        self.reconstructed_prob = None
+        
+        # Used to compute
+        self.compute_graph = None
+        self.subcircuit_entry_probs = None
+        self.num_cuts = None
+    
+    def reconstruct (self, compute_graph: ComputeGraph, subcircuit_entry_probs: dict, num_cuts: int) -> None:
+        '''
+        Performs subcircuit reconstruction.                 
+        '''
+        
+        # Setups Graph Contractor for contraction
         self.compute_graph = compute_graph
         self.subcircuit_entry_probs = subcircuit_entry_probs
         self.num_cuts = num_cuts
-        self.subcircuit_entry_lengths = {}
-
-        for subcircuit_idx in subcircuit_entry_probs:
-            first_entry_init_meas = list(subcircuit_entry_probs[subcircuit_idx].keys())[0]
-            length = len(subcircuit_entry_probs[subcircuit_idx][first_entry_init_meas])
-            self.subcircuit_entry_lengths[subcircuit_idx] = length
-
-        # Get order the tensorproducts will be computed
-        self.smart_order = sorted(
-            self.subcircuit_entry_lengths.keys(),
-            key=lambda subcircuit_idx: self.subcircuit_entry_lengths[subcircuit_idx],
-        )
-        self.max_effective = self.subcircuit_entry_lengths[self.smart_order[-1]]
-        
+        self._set_smart_order ()
         self.overhead = {"additions": 0, "multiplications": 0}
-        self.reconstructed_prob = self.compute()        
+        
+        return self._compute ()    
 
-    def compute(self):
+    def _set_smart_order (self) -> None:
+        '''
+        Sets the order in which kronecker products are computed in. Specefically 
+        order is to sort greedy-subcircuit-order.
+        '''
+
+        # Retrieve list of all subcircuit lengths
+        subcircuit_entry_lengths = {}
+        for subcircuit_idx in self.subcircuit_entry_probs:
+            first_entry_init_meas = list(self.subcircuit_entry_probs[subcircuit_idx].keys())[0]
+            length = len(self.subcircuit_entry_probs[subcircuit_idx][first_entry_init_meas])
+            subcircuit_entry_lengths[subcircuit_idx] = length
+
+        # Sort according to subcircuit lengths (greedy-subcircuit-order)
+        self.smart_order = sorted(
+            subcircuit_entry_lengths.keys(),
+            key=lambda subcircuit_idx: subcircuit_entry_lengths[subcircuit_idx],
+        )
+
+    def _compute(self):
         '''
         Performs distributed graph contraction. Returns the reconstructed probability
         '''
