@@ -8,13 +8,14 @@ from helper_functions.metrics import MSE
 
 from cutqc.evaluator import get_num_workers
 from cutqc.graph_contraction import GraphContractor
+from cutqc.distributed_graph_contraction import DistributedGraphContractor
 from cutqc.helper_fun import add_times
 from cutqc.post_process_helper import get_reconstruction_qubit_order
 
 
 class DynamicDefinition(object):
     def __init__(
-        self, compute_graph, data_folder, num_cuts, mem_limit, recursion_depth
+        self, compute_graph, data_folder, num_cuts, mem_limit, recursion_depth, parallel_reconstruction=False
     ) -> None:
         super().__init__()
         self.compute_graph = compute_graph
@@ -23,8 +24,10 @@ class DynamicDefinition(object):
         self.mem_limit = mem_limit
         self.recursion_depth = recursion_depth
         self.dd_bins = {}
-        self.overhead = {"additions": 0, "multiplications": 0}
+        self.graph_contractor = DistributedGraphContractor () if (parallel_reconstruction) else GraphContractor()
+    
 
+        self.overhead = {"additions": 0, "multiplications": 0}
         self.times = {"get_dd_schedule": 0, "merge_states_into_bins": 0, "sort": 0}
 
     def build(self):
@@ -63,17 +66,17 @@ class DynamicDefinition(object):
             merged_subcircuit_entry_probs = self.merge_states_into_bins()
 
             """ Build from the merged subcircuit entries """
-            graph_contractor = GraphContractor(
+            reconstructed_prob = self.graph_contractor.reconstruct (
                 compute_graph=self.compute_graph,
                 subcircuit_entry_probs=merged_subcircuit_entry_probs,
                 num_cuts=self.num_cuts,
-            )
-            reconstructed_prob = graph_contractor.reconstructed_prob
-            smart_order = graph_contractor.smart_order
-            recursion_overhead = graph_contractor.overhead
+                )
+            
+            smart_order = self.graph_contractor.smart_order
+            recursion_overhead = self.graph_contractor.overhead
             self.overhead["additions"] += recursion_overhead["additions"]
             self.overhead["multiplications"] += recursion_overhead["multiplications"]
-            self.times = add_times(times_a=self.times, times_b=graph_contractor.times)
+            self.times = add_times(times_a=self.times, times_b=self.graph_contractor.times)
 
             self.dd_bins[recursion_layer] = dd_schedule
             self.dd_bins[recursion_layer]["smart_order"] = smart_order

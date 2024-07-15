@@ -1,15 +1,15 @@
 import os, math
 import os, logging
 import torch
-from cutqc_runtime.main import CutQC 
+from cutqc.main import CutQC 
 from helper_functions.benchmarks import generate_circ
 
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
 if __name__ == "__main__":
-    circuit_type = "supremacy"
-    circuit_size = 16
+    circuit_type = "bv"
+    circuit_size = 4
     circuit = generate_circ(
         num_qubits=circuit_size,
         depth=1,
@@ -30,6 +30,8 @@ if __name__ == "__main__":
             "num_subcircuits": [2, 3],
         },
         verbose=False,
+        load_data=None,
+        parallel_reconstruction=None
     )
     
     print ("-- Cut -- ")    
@@ -46,6 +48,6 @@ if __name__ == "__main__":
     cutqc.build(mem_limit=32, recursion_depth=1)
     print ("-- Done Building -- \n")
     
-    # cutqc.verify ()
+    cutqc.verify ()
     print("Cut: %d recursions." % (cutqc.num_recursions))
     cutqc.clean_data()

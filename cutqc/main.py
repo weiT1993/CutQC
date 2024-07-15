@@ -17,12 +17,15 @@ class CutQC:
     cut --> evaluate results --> verify (optional)
     """
 
-    def __init__(self, name, circuit, cutter_constraints, verbose):
+    def __init__(self, name, circuit, cutter_constraints, verbose, load_data=None, parallel_reconstruction=False):
         """
         Args:
-        name : name of the input quantum circuit
-        circuit : the input quantum circuit
+        name: name of the input quantum circuit
+        circuit: the input quantum circuit
         cutter_constraints : cutting constraints to satisfy
+        load_data (Optional): String of file name to load subcircuit outputs 
+        from a previous CutQC instance. Default is None.
+        parallel_reconstruction (Optional): When set to 'True', reconstruction is executed distributed. Default is false.
 
         verbose: setting verbose to True to turn on logging information.
         Useful to visualize what happens,
@@ -34,10 +37,16 @@ class CutQC:
         self.cutter_constraints = cutter_constraints
         self.verbose = verbose
         self.times = {}
-        self.tmp_data_folder = "cutqc/tmp_data"
-        if os.path.exists(self.tmp_data_folder):
-            subprocess.run(["rm", "-r", self.tmp_data_folder])
-        os.makedirs(self.tmp_data_folder)
+        self.parallel_reconstruction = parallel_reconstruction
+
+        # Allows previous `cutqc` instance subcircuit shot data to be loaded in
+        if (load_data == None):
+            self.tmp_data_folder = "cutqc/tmp_data"
+            if os.path.exists(self.tmp_data_folder):
+                subprocess.run(["rm", "-r", self.tmp_data_folder])
+            os.makedirs(self.tmp_data_folder)
+        else:
+            self.tmp_data_folder = load_data
 
     def cut(self):
         """
@@ -112,12 +121,14 @@ class CutQC:
         }
 
         build_begin = perf_counter()
+    
         dd = DynamicDefinition(
             compute_graph=self.compute_graph,
             data_folder=self.tmp_data_folder,
             num_cuts=self.num_cuts,
             mem_limit=mem_limit,
             recursion_depth=recursion_depth,
+            parallel_reconstruction=self.parallel_reconstruction,
         )
         dd.build()
 
@@ -132,6 +143,13 @@ class CutQC:
         if self.verbose:
             print("Overhead = {}".format(self.overhead))
 
+    def save_eval_data (self, foldername: str) -> None:
+        '''
+        Saves subcircuit evaluation data which can be used in a future 
+        instance of `cutqc` for reconstruction.
+        '''
+        subprocess.run(["cp", "-r", self.tmp_data_folder, foldername])
+    
     def verify(self):
         verify_begin = perf_counter()
         reconstructed_prob, self.approximation_error = full_verify(

@@ -69,7 +69,6 @@ class GraphContractor(object):
                         tf.tensordot(summation_term, subcircuit_entry_prob, axes=0),
                         [-1],
                     )
-                    print (tf.shape (summation_term))
                     self.overhead["multiplications"] += len(summation_term)
         
             if reconstructed_prob is None:
