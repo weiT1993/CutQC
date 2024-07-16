@@ -201,7 +201,8 @@ class CutQC:
         if os.path.exists(self.tmp_data_folder):
             subprocess.run(["rm", "-r", self.tmp_data_folder])
         os.makedirs(self.tmp_data_folder)
-        run_subcircuit_instances(
+        
+        run_subcircuit_instances (
             subcircuits=self.subcircuits,
             subcircuit_instances=self.subcircuit_instances,
             eval_mode=self.eval_mode,

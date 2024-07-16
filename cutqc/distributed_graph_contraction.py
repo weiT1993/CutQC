@@ -17,8 +17,8 @@ from cutqc.post_process_helper import ComputeGraph
 # TODO: Add support for 'gloo' communication backend (cpu)
 # TODO: Autodetect communication backend 
 # TODO: Make it cleaner node configuration and support for more distributed schedulers other then slurm.
+# TODO: Make a general graph contractor class and inherit from it
 
-# TODO: Update formating changes from graph_contracton.py to distributed_graph_contraction.py
 class DistributedGraphContractor(object):
     def __init__(self) -> None: 
         super().__init__()
@@ -105,7 +105,7 @@ class DistributedGraphContractor(object):
             self.overhead["multiplications"] / counter * 4 ** len(edges)
         )
             
-    def _send_distributed(dataset: List[torch.Tensor], num_batches: int) -> torch.Tensor:
+    def _send_distributed(self, dataset: List[torch.Tensor], num_batches: int) -> torch.Tensor:
         '''
         Decomposes `dataset`list into 'num_batches' number of batches and distributes
         to worker processes. 

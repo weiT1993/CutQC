@@ -6,9 +6,9 @@
 import os, math
 import os, logging
 import argparse
-from cutqc.main import CutQC 
-from cutqc.main import load_cutqc_obj
-from helper_functions.benchmarks import generate_circ
+from ..cutqc.main import CutQC 
+from ..cutqc.main import load_cutqc_obj
+from ..helper_functions.benchmarks import generate_circ
 
 logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"

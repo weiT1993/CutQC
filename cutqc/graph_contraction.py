@@ -92,19 +92,6 @@ class GraphContractor(object):
         )
 
 
-def cg_print (obj):
-    print (f"Object Type: {type(obj)}")
-    print (f"Shape: {obj.shape}")
-
-def pad_to_length (arr : np.array, n : int):
-    '''
-    Returns the padded vector 'ARR' such that it is of length 'N'
-    '''
-    assert arr.ndim == 1, "Invalid numpy array dimension -- Must be vector"
-    
-    pad_amount = n - arr.shape[0]
-    return np.pad(arr, (0, pad_amount), mode='constant') if pad_amount > 0 else arr
-
 def get_subcircuit_entry_prob(gc: GraphContractor, subcircuit_idx: int):
     """
     Returns The subcircuit Entry Probability for the subcircuit at index
