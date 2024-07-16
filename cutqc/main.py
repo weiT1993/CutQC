@@ -11,18 +11,23 @@ from cutqc.post_process_helper import (
 )
 from cutqc.dynamic_definition import DynamicDefinition, full_verify
 
+import torch.distributed as dist
+__host_machine__ = 0
+
 class CutQC:
     """
     The main module for CutQC
     cut --> evaluate results --> verify (optional)
     """
 
-    def __init__(self, name, circuit, cutter_constraints, verbose, load_data=None, parallel_reconstruction=False):
+    def __init__(self, name, circuit, cutter_constraints=None, verbose=False, build_only=False, load_data=None, parallel_reconstruction=False):
         """
         Args:
         name: name of the input quantum circuit
         circuit: the input quantum circuit
         cutter_constraints : cutting constraints to satisfy
+        
+        build_one: spececifes building and no cutting or evlauting should occur
         load_data (Optional): String of file name to load subcircuit outputs 
         from a previous CutQC instance. Default is None.
         parallel_reconstruction (Optional): When set to 'True', reconstruction is executed distributed. Default is false.
@@ -40,13 +45,15 @@ class CutQC:
         self.parallel_reconstruction = parallel_reconstruction
 
         # Allows previous `cutqc` instance subcircuit shot data to be loaded in
-        if (load_data == None):
-            self.tmp_data_folder = "cutqc/tmp_data"
-            if os.path.exists(self.tmp_data_folder):
-                subprocess.run(["rm", "-r", self.tmp_data_folder])
-            os.makedirs(self.tmp_data_folder)
-        else:
-            self.tmp_data_folder = load_data
+        # TODO: Handle case for worker nodes and case for when 'parallel_reconstruction' == False
+        if (parallel_reconstruction==True and dist.get_rank()==__host_machine__):
+            if (load_data == None):
+                self.tmp_data_folder = "cutqc/tmp_data"
+                if os.path.exists(self.tmp_data_folder):
+                    subprocess.run(["rm", "-r", self.tmp_data_folder])
+                os.makedirs(self.tmp_data_folder)
+            else:
+                self.tmp_data_folder = load_data
 
     def cut(self):
         """
@@ -119,8 +126,7 @@ class CutQC:
             "cutter": self.times["cutter"],
             "evaluate": self.times["evaluate"],
         }
-
-        build_begin = perf_counter()
+        
     
         dd = DynamicDefinition(
             compute_graph=self.compute_graph,
@@ -130,7 +136,7 @@ class CutQC:
             recursion_depth=recursion_depth,
             parallel_reconstruction=self.parallel_reconstruction,
         )
-        dd.build()
+
 
         self.times = add_times(times_a=self.times, times_b=dd.times)
         self.approximation_bins = dd.dd_bins

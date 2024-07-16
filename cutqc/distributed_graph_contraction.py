@@ -12,19 +12,27 @@ from typing import List
 import numpy as np
 import torch
 import torch.distributed as dist
+
 from cutqc.post_process_helper import ComputeGraph
 
 # TODO: Add support for 'gloo' communication backend (cpu)
 # TODO: Autodetect communication backend 
 # TODO: Make it cleaner node configuration and support for more distributed schedulers other then slurm.
 # TODO: Make a general graph contractor class and inherit from it
+# TODO: Consider using RPC paradigm for workers
+
+__host_machine__ = 0
 
 class DistributedGraphContractor(object):
     def __init__(self) -> None: 
         super().__init__()
+        self._setup_nodes ()
         self.times = {}            
         self.reconstructed_prob = None
         
+        # Starts main worker loop
+        if dist.rank != __host_machine__: initiate_worker_loop ()
+
         # Used to compute
         self.compute_graph = None
         self.subcircuit_entry_probs = None
@@ -35,19 +43,29 @@ class DistributedGraphContractor(object):
         Performs subcircuit reconstruction.                 
         '''
         
-        # Setups Graph Contractor for contraction
+        # Set up Graph Contractor for contraction
         self.compute_graph = compute_graph
         self.subcircuit_entry_probs = subcircuit_entry_probs
         self.num_cuts = num_cuts
-        self._set_smart_order ()
+        self._set_smart_order()
         self.overhead = {"additions": 0, "multiplications": 0}
         
-        return self._compute ()    
+        return self._compute()    
 
+    def terminate_distributed_process ():
+        '''
+        Sends signal to workers to finish their execution.
+        '''
+        shutdown_flag = torch.ones(1, dtype=torch.int64).to(dist.get_backend ())
+        handle = dist.broadcast (shutdown_flag, src=__host_machine__, async_op=True)
+        dist.barrier()
+        handle.wait ()        
+        return
+    
     def _set_smart_order (self) -> None:
         '''
-        Sets the order in which kronecker products are computed in. Specefically 
-        order is to sort greedy-subcircuit-order.
+        Sets the order in which Kronecker products are computed. Specifically, 
+        the order is to sort by greedy subcircuit order.
         '''
 
         # Retrieve list of all subcircuit lengths
@@ -66,8 +84,7 @@ class DistributedGraphContractor(object):
     def _compute(self):
         '''
         Performs distributed graph contraction. Returns the reconstructed probability
-        '''
-        
+        '''        
         edges = self.compute_graph.get_edges(from_node=None, to_node=None)
 
         # Assemble sequence of uncomputed kronecker products, to distribute to nodes later
@@ -85,25 +102,11 @@ class DistributedGraphContractor(object):
         scale_begin = perf_counter()
 
         # Disribute and Execute reconstruction on nodes
+        dist.barrier ()  # Sync workers with host
         num_batches = dist.get_world_size - 1 # No batch for host
         reconstructed_prob = self._send_distributed (summation_terms_sequence, num_batches)
         
         return reconstructed_prob
-        
-        reconstructed_prob = tf.math.scalar_mul(
-            1 / 2**self.num_cuts, reconstructed_prob
-        ).numpy()
-        scale_time = perf_counter() - scale_begin
-
-        self.times["compute"] = (
-            partial_compute_time / counter * 4 ** len(edges) + scale_time
-        )
-        self.overhead["additions"] = int(
-            self.overhead["additions"] / counter * 4 ** len(edges)
-        )
-        self.overhead["multiplications"] = int(
-            self.overhead["multiplications"] / counter * 4 ** len(edges)
-        )
             
     def _send_distributed(self, dataset: List[torch.Tensor], num_batches: int) -> torch.Tensor:
         '''
@@ -146,16 +149,58 @@ class DistributedGraphContractor(object):
         # Create list of kronecker product terms
         product_tuple = [self._get_subcircuit_entry_prob(self, subcircuit_idx) for subcircuit_idx in self.smart_order]
         return product_tuple
-        
-        gc.compute_graph.assign_bases_to_edges(edge_bases=edge_bases, edges=edges)
 
-        # Kronecker prodcut tuple
-        product_tuple = []
+                                
+@torch.jit.script
+def compute_kronecker_product(components) -> torch.Tensor:
+    '''
+    Computes sequence of Kronecker products, where operands are tensors in 'components'.
+    '''
+    res = components[0]
+    for kron_prod in components[1:]:
+        res = torch.kron(res, kron_prod)
+    return res
+
+def initiate_worker_loop ():
+    '''
+    Primary worker loop.
+
+    Each worker receives a portion of the workload from the host/master node.
+    Once done with computation, all nodes perform a collective reduction
+    operation back to the host. Synchronization among nodes is provided via
+    barriers and blocked message passing.
+    '''
+    vectorized_kronecker = torch.func.vmap (compute_kronecker_product)
+    device = dist.get_backend ()    
+    
+    # Shutdown signal sent from host
+    shutdown_tensor = torch.ones(1, dtype=torch.int64).to(device)    
+    shutdown_sig = dist.broadcast (shutdown_tensor, src=__host_machine__, async_op=True)
+    
+    while True:
+        dist.barrier ()
         
-        for subcircuit_idx in gc.smart_order:
-            product_tuple.append(get_subcircuit_entry_prob(gc, subcircuit_idx))
-            
-        return product_tuple
+        # Break from distributed loop
+        if (shutdown_sig.is_completed ()): break                
+    
+        # Get shape of the batch we are receiving 
+        shape_tensor = torch.zeros([3], dtype=torch.int64, device=device) 
+        dist.recv(tensor=shape_tensor, src=__host_machine__) 
+        
+        # Create an empty batch tensor and receive its data
+        print(f"Rank {dist.rank}, shapetuple = {shape_tensor}")
+        batch_received = torch.empty(tuple(shape_tensor), device=device) 
+        dist.recv(tensor=batch_received, src=__host_machine__)    
+      
+        # Execute kronecker products in parallel (vectorization)
+        res = vectorized_kronecker (batch_received)
+        res = res.sum(dim=0)
+        print(f"Res: {res.shape}") 
+        
+        # Send Back to host
+        dist.reduce(res, dst=__host_machine__, op=dist.ReduceOp.SUM)
+
+    exit ()
 
 
             

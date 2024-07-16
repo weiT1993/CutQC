@@ -1,6 +1,7 @@
 import itertools, copy, pickle, subprocess
 from time import perf_counter
 import numpy as np
+import torch
 
 from helper_functions.non_ibmq_functions import evaluate_circ
 from helper_functions.conversions import quasi_to_real
@@ -25,7 +26,7 @@ class DynamicDefinition(object):
         self.recursion_depth = recursion_depth
         self.dd_bins = {}
         self.graph_contractor = DistributedGraphContractor () if (parallel_reconstruction) else GraphContractor()
-    
+        self.parallel_reconstruction = parallel_reconstruction
 
         self.overhead = {"additions": 0, "multiplications": 0}
         self.times = {"get_dd_schedule": 0, "merge_states_into_bins": 0, "sort": 0}
@@ -109,6 +110,11 @@ class DynamicDefinition(object):
                 )[: self.recursion_depth]
             self.times["sort"] += perf_counter() - sort_begin
             recursion_layer += 1
+        
+        # Terminate the parallized process         
+        if (self.parallel_reconstruction):
+            self.graph_contractor.terminate_distributed_process ()
+
 
     def initialize_dynamic_definition_schedule(self):
         schedule = {}
