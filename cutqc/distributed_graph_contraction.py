@@ -33,8 +33,6 @@ class DistributedGraphContractor(object):
 
         super().__init__()
         
-
-        # TODO: Look at adding compute time here
         self.times = {
             'compute': 0
         }            
