@@ -48,7 +48,8 @@ class DynamicDefinition(object):
         largest_bins = []  # [{recursion_layer, bin_id}]
         recursion_layer = 0
 
-        # initialized counter
+
+        compute_time = 0
 
         while recursion_layer < self.recursion_depth:
             # print('-'*10,'Recursion Layer %d'%(recursion_layer),'-'*10)
@@ -71,14 +72,12 @@ class DynamicDefinition(object):
             merged_subcircuit_entry_probs = self.merge_states_into_bins()
 
             """ Build from the merged subcircuit entries """
-            # counter here
             reconstructed_prob = self.graph_contractor.reconstruct (
                 compute_graph=self.compute_graph,
                 subcircuit_entry_probs=merged_subcircuit_entry_probs,
                 num_cuts=self.num_cuts,
                 )
-            # end counter
-            # add
+            compute_time += self.graph_contractor.times["compute"]
             print ("Recursion Layer: {}".format (recursion_layer))
             print ("Reconstructed_Prob: {}".format (reconstructed_prob))
             smart_order = self.graph_contractor.smart_order
@@ -118,7 +117,7 @@ class DynamicDefinition(object):
                 )[: self.recursion_depth]
             self.times["sort"] += perf_counter() - sort_begin
             recursion_layer += 1
-        # print
+        print(f"Compute Time: {compute_time}")
         
         # Terminate the parallized process         
         if (self.parallel_reconstruction):

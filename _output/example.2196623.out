@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "/home/ev4939/.conda/envs/cutqc_tf/lib/python3.8/runpy.py", line 194, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/home/ev4939/.conda/envs/cutqc_tf/lib/python3.8/runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "/home/ev4939/projects/CutQC_1.1/CutQC/driver_scripts/example.py", line 4, in <module>
+    from ..cutqc.main import CutQC 
+ValueError: attempted relative import beyond top-level package
+
+ Performance counter stats for 'python -m driver_scripts.example':
+
+                 0      fp_arith_inst_retired.256b_packed_single:u                                   
+
+       1.280423603 seconds time elapsed
+
+       1.000013000 seconds user
+       0.130869000 seconds sys
+
+
+/var/spool/slurmd/job2196623/slurm_script: line 26: ./_bin/.out: No such file or directory

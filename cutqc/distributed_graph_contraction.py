@@ -35,7 +35,9 @@ class DistributedGraphContractor(object):
         
 
         # TODO: Look at adding compute time here
-        self.times = {}            
+        self.times = {
+            'compute': 0
+        }            
         self.reconstructed_prob = None
     
         # Used to compute
@@ -103,7 +105,9 @@ class DistributedGraphContractor(object):
     def _compute(self):
         '''
         Performs distributed graph contraction. Returns the reconstructed probability
-        '''        
+        '''    
+        # Start time
+        start_time = perf_counter()    
         edges = self.compute_graph.get_edges(from_node=None, to_node=None)
 
         # Assemble sequence of uncomputed kronecker products, to distribute to nodes later
@@ -128,6 +132,9 @@ class DistributedGraphContractor(object):
         print ("Difference MSE: {}".format(MSE (reconstructed_prob.cpu().numpy(), self.refference.cpu ().numpy())), flush=True)
         print ("Difference Mine: {}".format(get_difference (reconstructed_prob.cpu(), self.refference.cpu ())), flush=True)
 
+        # End counter and add
+        end_time = perf_counter() - start_time
+        self.times['compute'] += end_time
         return reconstructed_prob.cpu().numpy()
             
     def _send_distributed(self, dataset: List[torch.Tensor], num_batches: int) -> torch.Tensor:
