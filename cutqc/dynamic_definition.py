@@ -13,6 +13,7 @@ from cutqc.distributed_graph_contraction import DistributedGraphContractor
 from cutqc.helper_fun import add_times
 from cutqc.post_process_helper import get_reconstruction_qubit_order
 
+import torch.distributed as dist
 
 class DynamicDefinition(object):
     def __init__(
@@ -60,7 +61,7 @@ class DynamicDefinition(object):
                     recursion_layer=bin_to_expand["recursion_layer"],
                     bin_id=bin_to_expand["bin_id"],
                 )
-            pickle.dump(
+            pickle.dump (
                 dd_schedule, open("%s/dd_schedule.pckl" % self.data_folder, "wb")
             )
             self.times["get_dd_schedule"] += perf_counter() - get_dd_schedule_begin
@@ -113,7 +114,7 @@ class DynamicDefinition(object):
         
         # Terminate the parallized process         
         if (self.parallel_reconstruction):
-            self.graph_contractor.terminate_distributed_process ()
+            self.graph_contractor.terminate_distributed_process()
 
 
     def initialize_dynamic_definition_schedule(self):

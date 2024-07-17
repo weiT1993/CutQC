@@ -20,7 +20,7 @@ class CutQC:
     cut --> evaluate results --> verify (optional)
     """
 
-    def __init__(self, name, circuit, cutter_constraints=None, verbose=False, build_only=False, load_data=None, parallel_reconstruction=False):
+    def __init__(self, name=None, circuit=None, cutter_constraints=None, verbose=False, build_only=False, load_data=None, parallel_reconstruction=False):
         """
         Args:
         name: name of the input quantum circuit
@@ -43,17 +43,31 @@ class CutQC:
         self.verbose = verbose
         self.times = {}
         self.parallel_reconstruction = parallel_reconstruction
+        
+        self.compute_graph = None
+        self.tmp_data_folder = None
+        self.num_cuts = None
 
-        # Allows previous `cutqc` instance subcircuit shot data to be loaded in
         # TODO: Handle case for worker nodes and case for when 'parallel_reconstruction' == False
-        if (parallel_reconstruction==True and dist.get_rank()==__host_machine__):
-            if (load_data == None):
-                self.tmp_data_folder = "cutqc/tmp_data"
-                if os.path.exists(self.tmp_data_folder):
-                    subprocess.run(["rm", "-r", self.tmp_data_folder])
-                os.makedirs(self.tmp_data_folder)
-            else:
-                self.tmp_data_folder = load_data
+        if (build_only == True):
+            if (parallel_reconstruction == True and dist.get_rank()==__host_machine__):
+                loadedCUTQC = None
+                with open (load_data, 'rb') as inp:
+                    loadedCUTQC = pickle.load(inp)
+                    self.circuit = loadedCUTQC.circuit
+                    self.name = loadedCUTQC.name
+                    self.compute_graph = loadedCUTQC.compute_graph
+                    self.tmp_data_folder = loadedCUTQC.tmp_data_folder
+                    self.num_cuts = loadedCUTQC.num_cuts            
+                    self.complete_path_map = loadedCUTQC.complete_path_map
+                    self.subcircuits = loadedCUTQC.subcircuits
+        else:    
+            self.tmp_data_folder = "cutqc/tmp_data"
+            if os.path.exists(self.tmp_data_folder):
+                subprocess.run(["rm", "-r", self.tmp_data_folder])
+            os.makedirs(self.tmp_data_folder)
+
+
 
     def cut(self):
         """
@@ -122,12 +136,13 @@ class CutQC:
             print("--> Build %s" % (self.name))
 
         # Keep these times and discard the rest
-        self.times = {
-            "cutter": self.times["cutter"],
-            "evaluate": self.times["evaluate"],
-        }
+        # self.times = {
+        #     "cutter": self.times["cutter"],
+        #     "evaluate": self.times["evaluate"],
+        # }
         
     
+        print ("self.parallel_reconstruction: {}".format (self.parallel_reconstruction))
         dd = DynamicDefinition(
             compute_graph=self.compute_graph,
             data_folder=self.tmp_data_folder,
@@ -136,15 +151,15 @@ class CutQC:
             recursion_depth=recursion_depth,
             parallel_reconstruction=self.parallel_reconstruction,
         )
-
+        dd.build ()
 
         self.times = add_times(times_a=self.times, times_b=dd.times)
         self.approximation_bins = dd.dd_bins
         self.num_recursions = len(self.approximation_bins)
         self.overhead = dd.overhead
-        self.times["build"] = perf_counter() - build_begin
-        self.times["build"] += self.times["cutter"]
-        self.times["build"] -= self.times["merge_states_into_bins"]
+        # self.times["build"] = perf_counter() - build_begin
+        # self.times["build"] += self.times["cutter"]
+        # self.times["build"] -= self.times["merge_states_into_bins"]
 
         if self.verbose:
             print("Overhead = {}".format(self.overhead))
@@ -232,13 +247,3 @@ class CutQC:
         subprocess.call(
             "rm %s/subcircuit*instance*.pckl" % self.tmp_data_folder, shell=True
         )
-
-def load_cutqc_obj (filename : str) -> CutQC:
-    '''
-    Returns the cutqc object instance stored in the pickle file 'FILENAME'
-    '''
-    res = None
-    with open (filename, 'rb') as inp:
-        res = pickle.load(inp)
-        
-    return res

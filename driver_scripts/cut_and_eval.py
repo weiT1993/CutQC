@@ -6,8 +6,8 @@ logging.disable(logging.WARNING)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1" 
 
-from ..cutqc.main import CutQC 
-from ..helper_functions.benchmarks import generate_circ
+from cutqc.main import CutQC 
+from helper_functions.benchmarks import generate_circ
 
 filename = "cutqc_data.pkl"
 
