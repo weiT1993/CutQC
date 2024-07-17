@@ -36,7 +36,6 @@ class CutQC:
         Useful to visualize what happens,
         but may produce very long outputs for complicated circuits.
         """
-        check_valid(circuit=circuit)
         self.name = name
         self.circuit = circuit
         self.cutter_constraints = cutter_constraints
@@ -61,7 +60,9 @@ class CutQC:
                     self.num_cuts = loadedCUTQC.num_cuts            
                     self.complete_path_map = loadedCUTQC.complete_path_map
                     self.subcircuits = loadedCUTQC.subcircuits
-        else:    
+        elif(parallel_reconstruction == False):    
+            
+            check_valid(circuit=circuit)
             self.tmp_data_folder = "cutqc/tmp_data"
             if os.path.exists(self.tmp_data_folder):
                 subprocess.run(["rm", "-r", self.tmp_data_folder])

@@ -47,6 +47,9 @@ class DynamicDefinition(object):
         )
         largest_bins = []  # [{recursion_layer, bin_id}]
         recursion_layer = 0
+
+        # initialized counter
+
         while recursion_layer < self.recursion_depth:
             # print('-'*10,'Recursion Layer %d'%(recursion_layer),'-'*10)
             """Get qubit states"""
@@ -68,12 +71,16 @@ class DynamicDefinition(object):
             merged_subcircuit_entry_probs = self.merge_states_into_bins()
 
             """ Build from the merged subcircuit entries """
+            # counter here
             reconstructed_prob = self.graph_contractor.reconstruct (
                 compute_graph=self.compute_graph,
                 subcircuit_entry_probs=merged_subcircuit_entry_probs,
                 num_cuts=self.num_cuts,
                 )
-            
+            # end counter
+            # add
+            print ("Recursion Layer: {}".format (recursion_layer))
+            print ("Reconstructed_Prob: {}".format (reconstructed_prob))
             smart_order = self.graph_contractor.smart_order
             recursion_overhead = self.graph_contractor.overhead
             self.overhead["additions"] += recursion_overhead["additions"]
@@ -111,6 +118,7 @@ class DynamicDefinition(object):
                 )[: self.recursion_depth]
             self.times["sort"] += perf_counter() - sort_begin
             recursion_layer += 1
+        # print
         
         # Terminate the parallized process         
         if (self.parallel_reconstruction):
@@ -335,12 +343,18 @@ def full_verify(full_circuit, complete_path_map, subcircuits, dd_bins):
     real_probability = quasi_to_real(
         quasiprobability=reconstructed_prob, mode="nearest"
     )
-    # print (f"MSE: {MSE(target=ground_truth, obs=real_probability)}")
+    print (f"MSE: {MSE(target=ground_truth, obs=real_probability)}")
+    print ("real_probability: {}".format (real_probability))
+    print ("real_probability.shape: {}".format (real_probability.shape))
+    print ("ground_truth: {}".format (ground_truth))
+    print ("ground_truth.shape: {}".format (ground_truth.shape))
+    
     approximation_error = (
         MSE(target=ground_truth, obs=real_probability)
         * 2**full_circuit.num_qubits
         / np.linalg.norm(ground_truth) ** 2
     )
+    
     
     # print (f"Reconstructed Error: {reconstructed_prob}")
     # print (f"Real Error: {real_probability}")
