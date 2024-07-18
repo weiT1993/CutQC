@@ -48,9 +48,6 @@ class DynamicDefinition(object):
         largest_bins = []  # [{recursion_layer, bin_id}]
         recursion_layer = 0
 
-
-        compute_time = 0
-
         while recursion_layer < self.recursion_depth:
             # print('-'*10,'Recursion Layer %d'%(recursion_layer),'-'*10)
             """Get qubit states"""
@@ -77,9 +74,8 @@ class DynamicDefinition(object):
                 subcircuit_entry_probs=merged_subcircuit_entry_probs,
                 num_cuts=self.num_cuts,
                 )
-            compute_time += self.graph_contractor.times["compute"]
-            print ("Recursion Layer: {}".format (recursion_layer))
-            print ("Reconstructed_Prob: {}".format (reconstructed_prob))
+        
+            
             smart_order = self.graph_contractor.smart_order
             recursion_overhead = self.graph_contractor.overhead
             self.overhead["additions"] += recursion_overhead["additions"]
@@ -117,9 +113,9 @@ class DynamicDefinition(object):
                 )[: self.recursion_depth]
             self.times["sort"] += perf_counter() - sort_begin
             recursion_layer += 1
-        print(f"Compute Time: {compute_time}")
         
         # Terminate the parallized process         
+        print("Compute Time: {}".format (self.graph_contractor.times["compute"]))
         if (self.parallel_reconstruction):
             self.graph_contractor.terminate_distributed_process()
 
@@ -342,11 +338,11 @@ def full_verify(full_circuit, complete_path_map, subcircuits, dd_bins):
     real_probability = quasi_to_real(
         quasiprobability=reconstructed_prob, mode="nearest"
     )
-    print (f"MSE: {MSE(target=ground_truth, obs=real_probability)}")
-    print ("real_probability: {}".format (real_probability))
-    print ("real_probability.shape: {}".format (real_probability.shape))
-    print ("ground_truth: {}".format (ground_truth))
-    print ("ground_truth.shape: {}".format (ground_truth.shape))
+    # print (f"MSE: {MSE(target=ground_truth, obs=real_probability)}")
+    # print ("real_probability: {}".format (real_probability))
+    # print ("real_probability.shape: {}".format (real_probability.shape))
+    # print ("ground_truth: {}".format (ground_truth))
+    # print ("ground_truth.shape: {}".format (ground_truth.shape))
     
     approximation_error = (
         MSE(target=ground_truth, obs=real_probability)

@@ -52,10 +52,13 @@ class DistributedGraphContractor(object):
         self.subcircuit_entry_probs = subcircuit_entry_probs
         self.num_cuts = num_cuts
         self._set_smart_order()
-        self.reference = torch.zeros(self.result_size, dtype=torch.float32)
-        # self.reference = torch.zeros(self.max_effective**len(self.smart_order))
+        # self.reference = torch.zeros(self.result_size, dtype=torch.float32)
         self.overhead = {"additions": 0, "multiplications": 0}
+        
+        start_time = perf_counter()
         res = self._compute()    
+        end_time = perf_counter() - start_time
+        self.times['compute'] += end_time
         
         return res 
 
@@ -63,6 +66,8 @@ class DistributedGraphContractor(object):
         '''
         Sends signal to workers to finish their execution.
         '''
+        dist.destroy_process_group() 
+        # exit ()
         # device = torch.device("cuda:{}".format(__host_machine__))
         
         # shutdown_flag = torch.ones(1, dtype=torch.float32).to(device)
@@ -70,7 +75,7 @@ class DistributedGraphContractor(object):
         #     handle = dist.isend(shutdown_flag,  dst=dst_rank+1) 
         #     handle.wait()
         
-        # dist.barrier()
+        # torch.cuda.synchronize(self.device)     # Sync workers with host
         # handle.wait()        
         return
     
@@ -117,6 +122,7 @@ class DistributedGraphContractor(object):
         # Distribute and Execute reconstruction on nodes
         torch.cuda.synchronize(self.device)     # Sync workers with host
         num_batches = dist.get_world_size() - 1 # No batch for host
+        # print ("num_batches {}".format(num_batches))
         reconstructed_prob = self._send_distributed(summation_terms_sequence, num_batches)
 
         return reconstructed_prob.cpu().numpy()
@@ -130,7 +136,7 @@ class DistributedGraphContractor(object):
         # Batch all uncomputed product tuples into batches
         batches = torch.stack(dataset).chunk(chunks=(num_batches))
         tensor_sizes_data = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64).cuda() # Used to strip zero padding 
-        
+        print (f'batches: {batches}')
         # Send off to nodes for compute
         for dst_rank, batch in enumerate(batches):
             # TODO: Convert to non-blocking send
@@ -171,17 +177,17 @@ class DistributedGraphContractor(object):
         
         for size, subcircuit_idx in zip(self.subcircuit_entry_lengths, self.smart_order):
             subcircuit_entry_prob = self._get_subcircuit_entry_prob(subcircuit_idx)
-            if ref_comp is None: 
-                ref_comp = torch.tensor(subcircuit_entry_prob, dtype=torch.float32)
-            else: 
-                ref_comp = torch.kron(ref_comp, torch.tensor(subcircuit_entry_prob, dtype=torch.float32))
+            # if ref_comp is None: 
+                # ref_comp = torch.tensor(subcircuit_entry_prob, dtype=torch.float32)
+            # else: 
+                # ref_comp = torch.kron(ref_comp, torch.tensor(subcircuit_entry_prob, dtype=torch.float32))
             
             pad_amount = self.max_effective - size
             new_component = torch.tensor(subcircuit_entry_prob, dtype=torch.float32)
             new_component = torch.nn.functional.pad(new_component, (0, pad_amount)) 
             product_list.append(new_component)
 
-        self.reference += ref_comp
+        # self.reference += ref_comp
         return product_list
         
     def _initiate_worker_loop(self):
@@ -195,12 +201,12 @@ class DistributedGraphContractor(object):
         '''
         
         # Shutdown signal sent from host    
-        # shutdown_tensor = torch.ones(1, dtype=torch.float32).to(device)    
+        # shutdown_tensor = torch.ones(1, dtype=torch.float32).to(self.device)    
         # shutdown_sig = dist.irecv(shutdown_tensor, src=__host_machine__)
-        
-        max_iter = 1        
-        while max_iter > 0:
-            max_iter -= 1
+        itera = 100
+
+        while itera:
+            itera -= 1
             torch.cuda.synchronize(self.device)
             
             # Break from distributed loop
