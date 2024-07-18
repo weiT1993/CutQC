@@ -1,3 +1,5 @@
+# Author: Ellie Vogel
+
 import os
 import subprocess
 
