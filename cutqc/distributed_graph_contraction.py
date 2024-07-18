@@ -19,7 +19,7 @@ from cutqc.post_process_helper import ComputeGraph
 # TODO: Add support for 'gloo' communication backend (cpu).
 # TODO: Autodetect communication backend.
 # TODO: Support for more distributed schedulers other then slurm.
-# TODO: Make a general graph contractor class and inherit from it.
+# TODO: Make a general graph contractor class and inherit from it. - Ellie
 # TODO: Consider using RPC paradigm for workers.
 
 __host_machine__ = 0
