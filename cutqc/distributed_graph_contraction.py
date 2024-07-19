@@ -15,6 +15,7 @@ import torch.distributed as dist
 from helper_functions.metrics import MSE
 from cutqc.post_process_helper import ComputeGraph
 
+# TODO: Add proper coordinated destruction sequence instead of 'timeout' var in 'init_workers'
 # TODO: Add support for 'gloo' communication backend (cpu).
 # TODO: Autodetect communication backend.
 # TODO: Support for more distributed schedulers other then slurm.
@@ -66,14 +67,6 @@ class DistributedGraphContractor(object):
         Sends signal to workers to finish their execution.
         '''
         dist.destroy_process_group()         
-        # exit ()
-        # device = torch.device("cuda:{}".format(__host_machine__))
-        # shutdown_flag = torch.ones(1, dtype=torch.float32).to(device)
-        # for dst_rank in range(1,  dist.get_world_size):
-        #     handle = dist.isend(shutdown_flag,  dst=dst_rank+1) 
-        #     handle.wait()
-        # torch.cuda.synchronize(self.device)     # Sync workers with host
-        # handle.wait()  
     
         return
     
@@ -129,7 +122,7 @@ class DistributedGraphContractor(object):
         Decomposes `dataset`list into 'num_batches' number of batches and distributes
         to worker processes. 
         '''
-
+        
         # Batch all uncomputed product tuples into batches
         batches = torch.stack(dataset).chunk(chunks=(num_batches))
         tensor_sizes_data = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64, requires_grad=False).cuda() # Used to strip zero padding 
@@ -191,10 +184,10 @@ class DistributedGraphContractor(object):
         barriers and blocked message passing.
         '''
         
-        itera = 100
-
-        while itera:
-            itera -= 1
+        # Max number of iterations untill worker exits        
+        timeout = 100
+ 
+        while timeout:
             torch.cuda.synchronize(self.device)
             
             # Receive Tensor list information
@@ -219,7 +212,9 @@ class DistributedGraphContractor(object):
             
             # Send Back to host
             dist.reduce(res, dst=__host_machine__, op=dist.ReduceOp.SUM)
-
+            timeout -= 1
+        
+        dist.destroy_process_group ()
         exit()
 
 # @torch.jit.script

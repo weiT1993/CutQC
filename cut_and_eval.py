@@ -12,8 +12,11 @@ from helper_functions.benchmarks import generate_circ
 filename = "cutqc_data.pkl"
 
 if __name__ == "__main__":
-    circuit_type = "supremacy"
-    circuit_size = 16
+    circuit_type = "adder"
+    circuit_size = 30
+    max_width = 10
+    verbose = True
+
     circuit = generate_circ(
         num_qubits=circuit_size,
         depth=1,
@@ -26,13 +29,13 @@ if __name__ == "__main__":
         name="%s_%d" % (circuit_type, circuit_size),
         circuit=circuit,
         cutter_constraints={
-            "max_subcircuit_width": 10,
+            "max_subcircuit_width": max_width,
             "max_subcircuit_cuts": 10,
             "subcircuit_size_imbalance": 2,
             "max_cuts": 10,
             "num_subcircuits": [2, 3, 4, 5, 6],
         },
-        verbose=False,
+        verbose=verbose,
     )
     
     print ("-- Cut -- ")    

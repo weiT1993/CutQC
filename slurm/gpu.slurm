@@ -19,7 +19,6 @@ export MASTER_ADDR=$master_addr
 export NCCL_DEBUG=WARN # Turn on nccl debuging outputs
 export TORCH_DISTRIBUTED_DETAIL=DEBUG
 
-
 # Sanity Print
 echo "MASTER_ADDR="$MASTER_ADDR
 echo "MASTER_PORT="$MASTER_PORT
@@ -29,6 +28,8 @@ echo "WORLD_SIZE="$WORLD_SIZE
 module purge
 module load anaconda3/2024.2
 conda activate cutqc
+module load gurobi/10.0.1
+export PYTHONPATH=/usr/licensed/gurobi/10.0.1/linux64/lib/python3.8_utf32
 
 # Run Job
 script_name=$1
