@@ -222,18 +222,18 @@ def compute_kronecker_product(components, tensor_sizes):
     '''
     Computes sequence of Kronecker products, where operands are tensors in 'components'.
     '''
-    components = torch.unbind(components, dim=0)
+    components_list = torch.unbind(components, dim=0)
   
-    val = tensor_sizes[0]
-    res = (components[0])[0:val] 
+    # Initialize the result with the first component, adjusted by its size
+    res = components_list[0][:tensor_sizes[0]]
     
-    i = 1
-    for kron_prod in components[1:]:
-        idx = tensor_sizes[i]
-        res = torch.kron(res, kron_prod[0:idx])
-        i += 1
+    # Sequentially compute the Kronecker product with the remaining components
+    for component, size in zip(components_list[1:], tensor_sizes[1:]):
+        
+        res = torch.kron(res, component[:size])
     
     return res
+
 
 def get_difference(expected, actual):
     diff = torch.abs(expected - actual)
