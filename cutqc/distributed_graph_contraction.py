@@ -91,6 +91,7 @@ class DistributedGraphContractor(object):
         
         self.max_effective = subcircuit_entry_lengths[self.smart_order[-1]] # For Padding
         self.subcircuit_entry_lengths = [subcircuit_entry_lengths[i] for i in self.smart_order]
+        print ("subcircuit_entry_lengh: {}".format(len (self.subcircuit_entry_lengths)), flush=True)
         self.result_size = np.prod(self.subcircuit_entry_lengths)
 
     def _compute(self):
@@ -226,15 +227,21 @@ def compute_kronecker_product(components, tensor_sizes):
   
     # Initialize the result with the first component, adjusted by its size
     res = components_list[0][:tensor_sizes[0]]
-    
+    i = 0
     # Sequentially compute the Kronecker product with the remaining components
     for component, size in zip(components_list[1:], tensor_sizes[1:]):
+        i += 1
+        print("i: {}".format (i))        
+        new = torch.kron(res, component[:size])
+        del (res)
+        del (component)
+        torch.cuda.empty_cache ()
+        res = new
         
-        res = torch.kron(res, component[:size])
     
     return res
 
 
 def get_difference(expected, actual):
-    diff = torch.abs(expected - actual)
+    diff = torch.abs(expected - actual) 
     return torch.min(diff)

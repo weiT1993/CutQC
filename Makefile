@@ -5,6 +5,7 @@ SLURM_DIR := slurm
 
 # Target Scripts
 SLURM?=gpu.slurm
+DEBUG_LEVEL?=INFO
 MAIN?=dist_run.py
 
 # Misc
@@ -25,7 +26,7 @@ NC='\033[0m' # No Color
 all: clean
 	@mkdir -p $(OUTPUT)
 	$(eval SB_ARGS := --job-name=$(JNAME))
-	$(eval SLURM_JOB_ID := $(shell sbatch --parsable $(SB_ARGS) $(SLURM_PATH) $(MAIN) ))
+	$(eval SLURM_JOB_ID := $(shell sbatch --parsable $(SB_ARGS) $(SLURM_PATH) $(MAIN) $(DEBUG_LEVEL)))
 	@if [ -z "$(SLURM_JOB_ID)" ]; then \
 			echo -e $(BRed) Failed to submit job. Exiting. $(NC); \
 			exit 1; \

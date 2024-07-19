@@ -27,7 +27,7 @@ class CutQC:
         circuit: the input quantum circuit
         cutter_constraints : cutting constraints to satisfy
         
-        build_one: spececifes building and no cutting or evlauting should occur
+        build_only: Spececifes building and no cutting or evlauting should occur.
         load_data (Optional): String of file name to load subcircuit outputs 
         from a previous CutQC instance. Default is None.
         parallel_reconstruction (Optional): When set to 'True', reconstruction is executed distributed. Default is false.

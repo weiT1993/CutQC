@@ -83,6 +83,7 @@ class GraphContractor(object):
         for subcircuit_idx in self.subcircuit_entry_probs:
             first_entry_init_meas = list(self.subcircuit_entry_probs[subcircuit_idx].keys())[0]
             length = len(self.subcircuit_entry_probs[subcircuit_idx][first_entry_init_meas])
+            print ("Length: gf {}".format (length))
             subcircuit_entry_lengths[subcircuit_idx] = length
 
         # Sort according to subcircuit lengths (greedy-subcircuit-order)
