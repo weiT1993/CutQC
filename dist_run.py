@@ -18,7 +18,8 @@ def run ():
     cutqc = CutQC (
     build_only = True,
     load_data = "cutqc_data.pkl",
-    parallel_reconstruction=True
+    parallel_reconstruction=True,
+    local_rank=LOCAL_RANK,
     )
 
     cutqc.build(mem_limit=32, recursion_depth=1)

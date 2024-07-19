@@ -25,9 +25,10 @@ from cutqc.post_process_helper import ComputeGraph
 __host_machine__ = 0
 
 class DistributedGraphContractor(object):
-    def __init__(self) -> None: 
+    def __init__(self, local_rank=None) -> None: 
         # Starts main worker loop
-        self.device = torch.device("cuda:{}".format(dist.get_rank()))
+        self.local_rank = local_rank
+        self.device = torch.device("cuda:{}".format(local_rank))
         torch.cuda.device(self.device)
         if dist.get_rank() != __host_machine__: self._initiate_worker_loop()
 

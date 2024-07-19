@@ -20,7 +20,7 @@ class CutQC:
     cut --> evaluate results --> verify (optional)
     """
 
-    def __init__(self, name=None, circuit=None, cutter_constraints=None, verbose=False, build_only=False, load_data=None, parallel_reconstruction=False):
+    def __init__(self, name=None, circuit=None, cutter_constraints=None, verbose=False, build_only=False, load_data=None, parallel_reconstruction=False, local_rank=None):
         """
         Args:
         name: name of the input quantum circuit
@@ -67,7 +67,10 @@ class CutQC:
             if os.path.exists(self.tmp_data_folder):
                 subprocess.run(["rm", "-r", self.tmp_data_folder])
             os.makedirs(self.tmp_data_folder)
-
+        
+        # Set the GPU ordinal
+        if (parallel_reconstruction == True):
+            self.local_rank = local_rank
 
 
     def cut(self):
@@ -151,6 +154,7 @@ class CutQC:
             mem_limit=mem_limit,
             recursion_depth=recursion_depth,
             parallel_reconstruction=self.parallel_reconstruction,
+            local_rank=self.local_rank
         )
         dd.build ()
 

@@ -12,10 +12,10 @@ from helper_functions.benchmarks import generate_circ
 filename = "cutqc_data.pkl"
 
 if __name__ == "__main__":
-    circuit_type = "adder"
-    circuit_size = 30
+    circuit_type = "bv"
+    circuit_size = 4
     max_width = 10
-    verbose = True
+    verbose = False
 
     circuit = generate_circ(
         num_qubits=circuit_size,
