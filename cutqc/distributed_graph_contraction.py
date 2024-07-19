@@ -52,7 +52,6 @@ class DistributedGraphContractor(object):
         self.subcircuit_entry_probs = subcircuit_entry_probs
         self.num_cuts = num_cuts
         self._set_smart_order()
-        # self.reference = torch.zeros(self.result_size, dtype=torch.float32)
         self.overhead = {"additions": 0, "multiplications": 0}
         
         start_time = perf_counter()
@@ -66,17 +65,16 @@ class DistributedGraphContractor(object):
         '''
         Sends signal to workers to finish their execution.
         '''
-        dist.destroy_process_group() 
+        dist.destroy_process_group()         
         # exit ()
         # device = torch.device("cuda:{}".format(__host_machine__))
-        
         # shutdown_flag = torch.ones(1, dtype=torch.float32).to(device)
         # for dst_rank in range(1,  dist.get_world_size):
         #     handle = dist.isend(shutdown_flag,  dst=dst_rank+1) 
         #     handle.wait()
-        
         # torch.cuda.synchronize(self.device)     # Sync workers with host
-        # handle.wait()        
+        # handle.wait()  
+    
         return
     
     def _set_smart_order(self) -> None:
@@ -122,7 +120,6 @@ class DistributedGraphContractor(object):
         # Distribute and Execute reconstruction on nodes
         torch.cuda.synchronize(self.device)     # Sync workers with host
         num_batches = dist.get_world_size() - 1 # No batch for host
-        # print ("num_batches {}".format(num_batches))
         reconstructed_prob = self._send_distributed(summation_terms_sequence, num_batches)
 
         return reconstructed_prob.cpu().numpy()
@@ -135,22 +132,22 @@ class DistributedGraphContractor(object):
 
         # Batch all uncomputed product tuples into batches
         batches = torch.stack(dataset).chunk(chunks=(num_batches))
-        tensor_sizes_data = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64).cuda() # Used to strip zero padding 
+        tensor_sizes_data = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64, requires_grad=False).cuda() # Used to strip zero padding 
         print (f'batches: {batches}')
         # Send off to nodes for compute
         for dst_rank, batch in enumerate(batches):
             # TODO: Convert to non-blocking send
             shape_data = batch.shape
             tensor_sizes_shape = tensor_sizes_data.shape 
-            dist.send(torch.tensor(tensor_sizes_shape, dtype=torch.int64).cuda(), dst=dst_rank+1) 
+            dist.send(torch.tensor(tensor_sizes_shape, dtype=torch.int64, requires_grad=False).cuda(), dst=dst_rank+1) 
             dist.send(tensor_sizes_data, dst=dst_rank+1)
 
-            dist.send(torch.tensor(shape_data).cuda(), dst=dst_rank+1) # Exclude Rank 0 Host 
+            dist.send(torch.tensor(shape_data, requires_grad=False).cuda(), dst=dst_rank+1) # Exclude Rank 0 Host 
             dist.send(batch.cuda(),  dst=dst_rank+1) 
         
         # Receive Results 
         # TODO: Receive and reduce outputs outside of this function -- beyond the scope of this function
-        output_buff = torch.zeros(self.result_size, dtype=torch.float32).cuda()  
+        output_buff = torch.empty(self.result_size, dtype=torch.float32, requires_grad=False).cuda()  
         dist.reduce(output_buff, dst=0, op=dist.ReduceOp.SUM)
         
         return torch.mul(output_buff, (1/2**self.num_cuts))
@@ -173,21 +170,15 @@ class DistributedGraphContractor(object):
 
         # Create list of kronecker product terms
         product_list = []
-        ref_comp = None
         
         for size, subcircuit_idx in zip(self.subcircuit_entry_lengths, self.smart_order):
             subcircuit_entry_prob = self._get_subcircuit_entry_prob(subcircuit_idx)
-            # if ref_comp is None: 
-                # ref_comp = torch.tensor(subcircuit_entry_prob, dtype=torch.float32)
-            # else: 
-                # ref_comp = torch.kron(ref_comp, torch.tensor(subcircuit_entry_prob, dtype=torch.float32))
             
             pad_amount = self.max_effective - size
-            new_component = torch.tensor(subcircuit_entry_prob, dtype=torch.float32)
+            new_component = torch.tensor(subcircuit_entry_prob, dtype=torch.float32, requires_grad=False)
             new_component = torch.nn.functional.pad(new_component, (0, pad_amount)) 
             product_list.append(new_component)
 
-        # self.reference += ref_comp
         return product_list
         
     def _initiate_worker_loop(self):
@@ -200,30 +191,24 @@ class DistributedGraphContractor(object):
         barriers and blocked message passing.
         '''
         
-        # Shutdown signal sent from host    
-        # shutdown_tensor = torch.ones(1, dtype=torch.float32).to(self.device)    
-        # shutdown_sig = dist.irecv(shutdown_tensor, src=__host_machine__)
         itera = 100
 
         while itera:
             itera -= 1
             torch.cuda.synchronize(self.device)
             
-            # Break from distributed loop
-            # if (shutdown_sig.is_completed()): break                
-
             # Receive Tensor list information
-            tensor_sizes_shape = torch.zeros([1], dtype=torch.int64, device=self.device) 
+            tensor_sizes_shape = torch.empty([1], dtype=torch.int64, requires_grad=False, device=self.device) 
             dist.recv(tensor=tensor_sizes_shape, src=__host_machine__)     
-            tensor_sizes = torch.zeros(tuple(tensor_sizes_shape), dtype=torch.int64, device=self.device) 
+            tensor_sizes = torch.empty(tuple(tensor_sizes_shape), dtype=torch.int64, requires_grad=False, device=self.device) 
             dist.recv(tensor=tensor_sizes, src=__host_machine__)    
         
             # Get shape of the batch we are receiving 
-            shape_tensor = torch.zeros([3], dtype=torch.int64, device=self.device) 
+            shape_tensor = torch.empty([3], dtype=torch.int64, requires_grad=False, device=self.device) 
             dist.recv(tensor=shape_tensor, src=__host_machine__) 
             
             # Create an empty batch tensor and receive its data
-            batch_received = torch.empty(tuple(shape_tensor), device=self.device, dtype=torch.float32) 
+            batch_received = torch.empty(tuple(shape_tensor), device=self.device, dtype=torch.float32, requires_grad=False) 
             dist.recv(tensor=batch_received, src=__host_machine__)    
         
             # Execute kronecker products in parallel (vectorization)
