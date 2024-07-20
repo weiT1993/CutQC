@@ -5,7 +5,7 @@ SLURM_DIR := slurm
 
 # Target Scripts
 SLURM?=gpu.slurm
-DEBUG_LEVEL?=INFO
+DEBUG_LEVEL?=WARN
 MAIN?=dist_run.py
 
 # Misc

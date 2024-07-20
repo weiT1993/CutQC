@@ -182,8 +182,8 @@ class DistributedGraphContractor(object):
         operation back to the host. Synchronization among nodes is provided via
         barriers and blocked message passing.
         '''
-        torch.cuda.device(self.device)        
-
+        torch.set_default_device(self.device)        
+        
         # Host will send signal to break from loop
         while True:
             with torch.no_grad ():
