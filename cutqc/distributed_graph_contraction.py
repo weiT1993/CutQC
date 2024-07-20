@@ -110,7 +110,6 @@ class DistributedGraphContractor(object):
         self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
         
         # Distribute and Execute reconstruction on nodes
-        torch.cuda.synchronize(self.device)     # Sync workers with host
         num_batches = dist.get_world_size() - 1 # No batch for host
         reconstructed_prob = self._send_distributed(summation_terms_sequence, num_batches)
 
@@ -125,17 +124,17 @@ class DistributedGraphContractor(object):
         # Batch all uncomputed product tuples into batches
         batches = torch.stack(dataset).chunk(chunks=(num_batches))
         tensor_sizes_data = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64, requires_grad=False).cuda() # Used to strip zero padding 
+        tensor_sizes_shape = tensor_sizes_data.shape 
+        
         print (f'batches: {batches}')
         # Send off to nodes for compute
         for dst_rank, batch in enumerate(batches):
             # TODO: Convert to non-blocking send
-            shape_data = batch.shape
-            tensor_sizes_shape = tensor_sizes_data.shape 
-            dist.send(torch.tensor(tensor_sizes_shape, dtype=torch.int64, requires_grad=False).cuda(), dst=dst_rank+1) 
-            dist.send(tensor_sizes_data, dst=dst_rank+1)
+            dist.isend(torch.tensor(tensor_sizes_shape, dtype=torch.int64, requires_grad=False).cuda(), dst=dst_rank+1) 
+            dist.isend(tensor_sizes_data, dst=dst_rank+1)
 
-            dist.send(torch.tensor(shape_data, requires_grad=False).cuda(), dst=dst_rank+1) # Exclude Rank 0 Host 
-            dist.send(batch.cuda(),  dst=dst_rank+1) 
+            dist.isend(torch.tensor(batch.shape, requires_grad=False).cuda(), dst=dst_rank+1) # Exclude Rank 0 Host 
+            dist.isend(batch.cuda(),  dst=dst_rank+1) 
         
         # Receive Results 
         # TODO: Receive and reduce outputs outside of this function -- beyond the scope of this function
