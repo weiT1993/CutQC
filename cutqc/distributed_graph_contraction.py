@@ -186,7 +186,6 @@ class DistributedGraphContractor(object):
         # Host will send signal to break from loop
         while True:
             with torch.no_grad ():
-                torch.cuda.synchronize(self.device)
                 
                 # Receive Tensor list information
                 tensor_sizes_shape = torch.empty([1], dtype=torch.int64) 
