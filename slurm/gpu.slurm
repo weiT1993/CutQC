@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH --output=_output/%x.%j.out
-#SBATCH --nodes=1                 # node count
-#SBATCH --ntasks-per-node=2       # total number of tasks across all nodes
+#SBATCH --nodes=2                 # node count
+#SBATCH --ntasks-per-node=3       # total number of tasks across all nodes
 #SBATCH --cpus-per-task=2         # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --mem=1G                  # memory per cpu-core (4G is default)
-#SBATCH --gres=gpu=2
-#SBATCH --time=00:00:05           # total run time limit (HH:MM:SS)
+#SBATCH --mem=32G                  # memory per cpu-core (4G is default)
+#SBATCH --gres=gpu=3
+#SBATCH --time=00:15:00           # total run time limit (HH:MM:SS)
 #SBATCH --mail-type=begin         # send email when job begins
 #SBATCH --mail-type=end           # send email when job ends
 #SBATCH --mail-type=fail          # send mail if job fails

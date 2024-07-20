@@ -13,7 +13,7 @@ filename = "cutqc_data.pkl"
 
 if __name__ == "__main__":
     circuit_type = "bv"
-    circuit_size = 4
+    circuit_size = 22
     max_width = 10
     verbose = False
 

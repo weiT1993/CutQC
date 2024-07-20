@@ -110,6 +110,7 @@ class DistributedGraphContractor(object):
         self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
         
         # Distribute and Execute reconstruction on nodes
+        torch.cuda.synchronize (self.device)
         num_batches = dist.get_world_size() - 1 # No batch for host
         reconstructed_prob = self._send_distributed(summation_terms_sequence, num_batches)
 
@@ -186,7 +187,8 @@ class DistributedGraphContractor(object):
         # Host will send signal to break from loop
         while True:
             with torch.no_grad ():
-                
+                torch.cuda.synchronize(self.device)
+            
                 # Receive Tensor list information
                 tensor_sizes_shape = torch.empty([1], dtype=torch.int64) 
                 dist.recv(tensor=tensor_sizes_shape, src=__host_machine__)     

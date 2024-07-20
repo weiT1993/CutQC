@@ -5,6 +5,7 @@ import torch.distributed as dist
 
 from cutqc.main import CutQC 
 from helper_functions.benchmarks import generate_circ
+from datetime import timedelta
 
 # Environment variables set by slurm script
 gpus_per_node = int (os.environ["SLURM_GPUS_ON_NODE"])
@@ -22,11 +23,12 @@ def run ():
     local_rank=LOCAL_RANK,
     )
 
-    cutqc.build(mem_limit=32, recursion_depth=1)
+    cutqc.build(mem_limit=20, recursion_depth=1)
     cutqc.verify ()
   
 def init_processes(backend):
-    dist.init_process_group(backend, rank=WORLD_RANK, world_size=WORLD_SIZE)
+    
+    dist.init_process_group(backend, rank=WORLD_RANK, world_size=WORLD_SIZE, timeout=timedelta(hours=1))
     print ("Hello world! This is worker: {}. I have {} siblings!".format (dist.get_rank(), dist.get_world_size()))
     run ()
 
