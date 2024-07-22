@@ -30,6 +30,7 @@ class DistributedGraphContractor(object):
         self.local_rank = local_rank
         self.device = torch.device("cuda:{}".format(local_rank))
         torch.cuda.device(self.device)
+        
         if dist.get_rank() != __host_machine__: self._initiate_worker_loop()
         super().__init__()        
         self.times = {'compute': 0}            
@@ -62,16 +63,18 @@ class DistributedGraphContractor(object):
         '''
         Sends signal to workers to finish their execution.
         '''
+        
         termination_signal = torch.tensor([-1], dtype=torch.int64).cuda()
         for rank in range(1, dist.get_world_size()):
             dist.send(termination_signal, dst=rank)
             
+        print ("DESTROYING NOW ! {}".format ( self.times['compute']), flush=True)
         dist.destroy_process_group()
 
     def _set_smart_order(self) -> None:
         '''
         Sets the order in which Kronecker products are computed. Specifically, 
-        the order is to sort by greedy subcircuit order.
+        the order is to sort by greedy subcircuit or der.
         '''
 
         # Retrieve list of all subcircuit lengths
@@ -110,7 +113,7 @@ class DistributedGraphContractor(object):
         self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
         
         # Distribute and Execute reconstruction on nodes
-        torch.cuda.synchronize (self.device)
+        
         num_batches = dist.get_world_size() - 1 # No batch for host
         reconstructed_prob = self._send_distributed(summation_terms_sequence, num_batches)
 
@@ -123,7 +126,12 @@ class DistributedGraphContractor(object):
         '''
         
         # Batch all uncomputed product tuples into batches
-        batches = torch.stack(dataset).chunk(chunks=(num_batches))
+        if (len(dataset) < num_batches):
+            print ("LEN(DATASET): {}".format (len(dataset)))
+            print ("NUMBER BATCHES: {}".format (num_batches))
+            raise ValueError ("Invalid number of requested batches -- Too many nodes allocated") 
+        
+        batches = torch.stack(dataset).tensor_split(num_batches)
         tensor_sizes_data = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64, requires_grad=False).cuda() # Used to strip zero padding 
         tensor_sizes_shape = tensor_sizes_data.shape 
         
@@ -140,6 +148,7 @@ class DistributedGraphContractor(object):
         # Receive Results 
         # TODO: Receive and reduce outputs outside of this function -- beyond the scope of this function
         output_buff = torch.empty(self.result_size, dtype=torch.float32, requires_grad=False).cuda()  
+        torch.cuda.synchronize (self.device)
         dist.reduce(output_buff, dst=0, op=dist.ReduceOp.SUM)
         
         return torch.mul(output_buff, (1/2**self.num_cuts))
@@ -183,18 +192,21 @@ class DistributedGraphContractor(object):
         barriers and blocked message passing.
         '''
         torch.set_default_device(self.device)        
-        
+        torch.cuda.set_device (self.device)
         # Host will send signal to break from loop
         while True:
             with torch.no_grad ():
-                torch.cuda.synchronize(self.device)
+
             
                 # Receive Tensor list information
                 tensor_sizes_shape = torch.empty([1], dtype=torch.int64) 
                 dist.recv(tensor=tensor_sizes_shape, src=__host_machine__)     
                 
+                print ("TENSORSIZES SHAPE {}".format(tensor_sizes_shape.item()), flush=True)
                 # Check for termination signal
                 if tensor_sizes_shape.item() == -1:
+                    exit ()
+                    # dist.destroy_process_group()
                     break
                 
                 # Used to remove padding 
@@ -215,6 +227,7 @@ class DistributedGraphContractor(object):
                 res = vec_fn(batch_received).sum (dim=0)    
                 
                 # Send Back to host
+                torch.cuda.synchronize(self.device)
                 dist.reduce(res, dst=__host_machine__, op=dist.ReduceOp.SUM)
             
         dist.destroy_process_group()
