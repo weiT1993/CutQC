@@ -72,6 +72,8 @@ class CutQC:
         if (parallel_reconstruction == True):
             self.local_rank = local_rank
 
+    def destroy_distributed (self):
+        self.dd.graph_contractor.terminate_distributed_process()
 
     def cut(self):
         """
@@ -147,7 +149,7 @@ class CutQC:
         
     
         print ("self.parallel_reconstruction: {}".format (self.parallel_reconstruction))
-        dd = DynamicDefinition(
+        self.dd = DynamicDefinition(
             compute_graph=self.compute_graph,
             data_folder=self.tmp_data_folder,
             num_cuts=self.num_cuts,
@@ -156,18 +158,20 @@ class CutQC:
             parallel_reconstruction=self.parallel_reconstruction,
             local_rank=self.local_rank
         )
-        dd.build ()
+        self.dd.build ()
 
-        self.times = add_times(times_a=self.times, times_b=dd.times)
-        self.approximation_bins = dd.dd_bins
+        self.times = add_times(times_a=self.times, times_b=self.dd.times)
+        self.approximation_bins = self.dd.dd_bins
         self.num_recursions = len(self.approximation_bins)
-        self.overhead = dd.overhead
+        self.overhead = self.dd.overhead
         # self.times["build"] = perf_counter() - build_begin
         # self.times["build"] += self.times["cutter"]
         # self.times["build"] -= self.times["merge_states_into_bins"]
 
         if self.verbose:
             print("Overhead = {}".format(self.overhead))
+
+        return self.dd.graph_contractor.times["compute"]
 
     def save_eval_data (self, foldername: str) -> None:
         '''
@@ -187,6 +191,7 @@ class CutQC:
         
         print (f"Approximate Error: {self.approximation_error}")
         print("verify took %.3f" % (perf_counter() - verify_begin))
+        return self.approximation_error
 
     def save_cutqc_obj (self, filename : str) -> None:
         '''

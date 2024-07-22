@@ -117,8 +117,8 @@ class DynamicDefinition(object):
         
         # Terminate the parallized process         
         print("Compute Time: {}".format (self.graph_contractor.times["compute"]))
-        if (self.parallel_reconstruction):
-            self.graph_contractor.terminate_distributed_process()
+        # if (self.parallel_reconstruction):
+        #     self.graph_contractor.terminate_distributed_process()
 
 
     def initialize_dynamic_definition_schedule(self):

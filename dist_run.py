@@ -15,16 +15,37 @@ LOCAL_RANK = WORLD_RANK - gpus_per_node * (WORLD_RANK // gpus_per_node)
 MASTER_RANK = 0
 backend = "nccl"
 
-def run ():
-    cutqc = CutQC (
-    build_only = True,
-    load_data = "cutqc_data.pkl",
-    parallel_reconstruction=True,
-    local_rank=LOCAL_RANK,
+import os
+
+def run():
+    filename = "adder_24_20"
+    full_path = "{}.pkl".format(filename) # os.path.join  (dirname, "{}.pkl".format(filename))
+    print (full_path)
+    
+    cutqc = CutQC(
+        build_only=True,
+        load_data=full_path,
+        parallel_reconstruction=True,
+        local_rank=LOCAL_RANK,
     )
 
-    cutqc.build(mem_limit=20, recursion_depth=1)
-    cutqc.verify ()
+    compute_time = cutqc.build(mem_limit=32, recursion_depth=1)
+    approximation_error = cutqc.verify()
+
+    # Define the path for the output text file
+    dirname = "data_measurements"
+    output_file_path = os.path.join(dirname, "{}.txt".format(filename))
+
+    # Write compute time and approximation error to the file
+    with open(output_file_path, 'w') as file:
+        file.write(f"Compute Time: {compute_time}\n")
+        file.write(f"Approximation Error: {approximation_error}\n")
+
+    
+    cutqc.destroy_distributed ()
+        
+
+
   
 def init_processes(backend):
     

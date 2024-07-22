@@ -9,14 +9,16 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 from cutqc.main import CutQC 
 from helper_functions.benchmarks import generate_circ
 
-filename = "cutqc_data.pkl"
+
 
 if __name__ == "__main__":
-    circuit_type = "bv"
-    circuit_size = 22
-    max_width = 10
+    circuit_type = "adder"
+    circuit_size = 24
+    max_width = 20
     verbose = False
-
+    
+    filename = "{}_{}_{}.pkl".format (circuit_type, circuit_size, max_width)
+    
     circuit = generate_circ(
         num_qubits=circuit_size,
         depth=1,
