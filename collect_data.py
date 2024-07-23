@@ -1,5 +1,5 @@
-# Author: Ellie Vogel
-# Description: Python script to submit SLURM scripts with varying circuit parameters. Tests will execute in series.
+# Python script to submit SLURM scripts with varying circuit parameters. Tests will execute in series.
+# Call collect_data.py to submit SLURM jobs
 
 import os
 import subprocess
