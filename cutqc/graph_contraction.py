@@ -32,8 +32,13 @@ class GraphContractor(object):
         self.num_cuts = num_cuts
         self._set_smart_order ()
         self.overhead = {"additions": 0, "multiplications": 0}
-        
-        return self._compute ()
+
+        start_time = perf_counter()
+        res = self._compute()    
+        end_time = perf_counter() - start_time
+        self.times['compute'] += end_time
+
+        return res
     
     def _compute(self):
         '''

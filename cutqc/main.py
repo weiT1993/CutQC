@@ -19,59 +19,63 @@ class CutQC:
     The main module for CutQC
     cut --> evaluate results --> verify (optional)
     """
-
-    def __init__(self, name=None, circuit=None, cutter_constraints=None, verbose=False, build_only=False, load_data=None, parallel_reconstruction=False, local_rank=None):
+    
+    def __init__(self, name=None, circuit=None, cutter_constraints=None, verbose=False, 
+                 build_only=False, load_data=None, parallel_reconstruction=False, local_rank=None):
         """
         Args:
         name: name of the input quantum circuit
         circuit: the input quantum circuit
-        cutter_constraints : cutting constraints to satisfy
-        
-        build_only: Spececifes building and no cutting or evlauting should occur.
+        cutter_constraints: cutting constraints to satisfy
+        build_only: Specifies building and no cutting or evaluating should occur.
         load_data (Optional): String of file name to load subcircuit outputs 
-        from a previous CutQC instance. Default is None.
+                              from a previous CutQC instance. Default is None.
         parallel_reconstruction (Optional): When set to 'True', reconstruction is executed distributed. Default is false.
-
         verbose: setting verbose to True to turn on logging information.
-        Useful to visualize what happens,
-        but may produce very long outputs for complicated circuits.
+                 Useful to visualize what happens,
+                 but may produce very long outputs for complicated circuits.
         """
         self.name = name
         self.circuit = circuit
         self.cutter_constraints = cutter_constraints
+        self.local_rank = local_rank
         self.verbose = verbose
         self.times = {}
-        self.parallel_reconstruction = parallel_reconstruction
         
         self.compute_graph = None
         self.tmp_data_folder = None
         self.num_cuts = None
+        self.complete_path_map = None
+        self.subcircuits = None
 
-        # TODO: Handle case for worker nodes and case for when 'parallel_reconstruction' == False
-        if (build_only == True):
-            if (parallel_reconstruction == True and dist.get_rank()==__host_machine__):
-                loadedCUTQC = None
-                with open (load_data, 'rb') as inp:
-                    loadedCUTQC = pickle.load(inp)
-                    self.circuit = loadedCUTQC.circuit
-                    self.name = loadedCUTQC.name
-                    self.compute_graph = loadedCUTQC.compute_graph
-                    self.tmp_data_folder = loadedCUTQC.tmp_data_folder
-                    self.num_cuts = loadedCUTQC.num_cuts            
-                    self.complete_path_map = loadedCUTQC.complete_path_map
-                    self.subcircuits = loadedCUTQC.subcircuits
-        elif(parallel_reconstruction == False):    
-            
-            check_valid(circuit=circuit)
-            self.tmp_data_folder = "cutqc/tmp_data"
-            if os.path.exists(self.tmp_data_folder):
-                subprocess.run(["rm", "-r", self.tmp_data_folder])
-            os.makedirs(self.tmp_data_folder)
+        if build_only:
+            # Only host should load in distributed mode
+            if parallel_reconstruction and dist.get_rank() == __host_machine__:
+                self._load_data(load_data)
+            if not parallel_reconstruction:
+                self._load_data(load_data)
+        elif not build_only:
+            self._initialize_for_serial_reconstruction(circuit)    
         
-        # Set the GPU ordinal
-        if (parallel_reconstruction == True):
-            self.local_rank = local_rank
+        self.parallel_reconstruction = parallel_reconstruction
+        self.local_rank = local_rank
+        
+    
+    def _load_data(self, load_data):
+        with open(load_data, 'rb') as inp:
+            loaded_cutqc = pickle.load(inp)
+            self.__dict__.update(vars(loaded_cutqc))
 
+    def _initialize_for_serial_reconstruction(self, circuit):
+        check_valid(circuit=circuit)
+        self.tmp_data_folder = "cutqc/tmp_data"
+        self._setup_tmp_folder()
+
+    def _setup_tmp_folder(self):
+        if os.path.exists(self.tmp_data_folder):
+            subprocess.run(["rm", "-r", self.tmp_data_folder])
+        os.makedirs(self.tmp_data_folder)
+    
     def destroy_distributed (self):
         self.dd.graph_contractor.terminate_distributed_process()
 

@@ -1,15 +1,14 @@
 #!/bin/bash
 #SBATCH --output=_output/%x.%j.out
-#SBATCH --nodes=2                 # node count
-#SBATCH --ntasks-per-node=4       # total number of tasks across all nodes
+#SBATCH --nodes=1                 # node count
+#SBATCH --ntasks-per-node=3       # total number of tasks across all nodes
 #SBATCH --cpus-per-task=1         # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --mem=30G                  # memory per cpu-core (4G is default)
-#SBATCH --gres=gpu:4
-#SBATCH --time=01:00:35           # total run time limit (HH:MM:SS)
+#SBATCH --mem=40G                  # memory per cpu-core (4G is default)
+#SBATCH --gres=gpu:3
+#SBATCH --time=00:0:60           # total run time limit (HH:MM:SS)
 #SBATCH --mail-type=begin         # send email when job begins
 #SBATCH --mail-type=end           # send email when job ends
 #SBATCH --mail-type=fail          # send mail if job fails
-
 
 # Parse CMD Args
 script_name=$1
@@ -39,6 +38,12 @@ conda activate cutqc
 module load gurobi/10.0.1
 export PYTHONPATH=/usr/licensed/gurobi/10.0.1/linux64/lib/python3.8_utf32
 
+circ_type=bv
+circ_size=10
+max_width=10
+backend=gloo
+
 # Run Job
-python3 cut_and_eval.py
-srun python $script_name
+python3 cut_and_eval.py $circ_type $circ_size $max_width
+# python3 tf_run.py $circ_type $circ_size $max_width
+srun python $script_name $circ_type $circ_size $max_width $backend
