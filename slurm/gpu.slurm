@@ -1,4 +1,12 @@
 #!/bin/bash
+<<<<<<< HEAD
+#SBATCH --nodes=1                 # node count
+#SBATCH --ntasks-per-node=4       # total number of tasks across all nodes
+#SBATCH --cpus-per-task=1         # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --mem=5G                  # memory per cpu-core (4G is default)
+#SBATCH --gres=gpu:4
+#SBATCH --time=00:00:10           # total run time limit (HH:MM:SS)
+=======
 #SBATCH --output=_output/%x.%j.out
 #SBATCH --nodes=1                 # node count
 #SBATCH --ntasks-per-node=3       # total number of tasks across all nodes
@@ -6,6 +14,7 @@
 #SBATCH --mem=40G                  # memory per cpu-core (4G is default)
 #SBATCH --gres=gpu:3
 #SBATCH --time=00:0:60           # total run time limit (HH:MM:SS)
+>>>>>>> e2b2958dfeffcb6c2e879ecb0b36a223bb3aaaec
 #SBATCH --mail-type=begin         # send email when job begins
 #SBATCH --mail-type=end           # send email when job ends
 #SBATCH --mail-type=fail          # send mail if job fails
