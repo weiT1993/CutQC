@@ -146,12 +146,12 @@ class HWEA:
             # print(len(theta))
             p_idx = 0
             for i in range(self.nq):
-                self.circ.u3(theta[i + p_idx], 0, 0, self.qr[i])
+                self.circ.u(theta[i + p_idx], 0, 0, self.qr[i])
             p_idx += self.nq
 
             # layer 2
             for i in range(self.nq):
-                self.circ.u3(0, 0, theta[i + p_idx], self.qr[i])
+                self.circ.u(0, 0, theta[i + p_idx], self.qr[i])
             p_idx += self.nq
 
             if self.barriers:
@@ -171,12 +171,12 @@ class HWEA:
                 # PARAMETERIZER
                 # layer 1
                 for i in range(self.nq):
-                    self.circ.u3(theta[i + p_idx], 0, 0, self.qr[i])
+                    self.circ.u(theta[i + p_idx], 0, 0, self.qr[i])
                 p_idx += self.nq
 
                 # layer 2
                 for i in range(self.nq):
-                    self.circ.u3(0, 0, theta[i + p_idx], self.qr[i])
+                    self.circ.u(0, 0, theta[i + p_idx], self.qr[i])
                 p_idx += self.nq
 
             # place measurements on the end of the circuit

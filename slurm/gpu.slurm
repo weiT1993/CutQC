@@ -41,7 +41,7 @@ export PYTHONPATH=/usr/licensed/gurobi/10.0.1/linux64/lib/python3.8_utf32
 circ_type=bv
 circ_size=10
 max_width=10
-backend=gloo
+backend=nccl
 
 # Run Job
 python3 cut_and_eval.py $circ_type $circ_size $max_width
