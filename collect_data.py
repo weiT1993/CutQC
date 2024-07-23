@@ -9,7 +9,7 @@ variable_sets = [
     {'circuit_size': 12, 'max_subcircuit_width': 10, 'circuit_type': 'supremacy'}
 ]
 
-with open('slurm/gpu.slurm', 'r') as file:
+with open('slurm/collect_data.slurm', 'r') as file:
     slurm_template = file.read()
 slurm_scripts_dir = 'generated_slurm_scripts'
 os.makedirs(slurm_scripts_dir, exist_ok=True)

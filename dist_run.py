@@ -20,7 +20,7 @@ import os
 
 def run (circuit_size, max_subcircuit_width, circuit_type):
     filename = "{}_{}_{}".format (circuit_type, circuit_size, max_subcircuit_width)
-    full_path = "{}.pkl".format(filename) # os.path.join  (dirname, "{}.pkl".format(filename))
+    full_path = "pickle_files/{}.pkl".format(filename) # os.path.join  (dirname, "{}.pkl".format(filename))
     print (full_path)
     
     cutqc = CutQC(
@@ -55,8 +55,6 @@ def init_processes(backend, circuit_size, max_subcircuit_width, circuit_type):
     run (circuit_size, max_subcircuit_width, circuit_type)
 
 if __name__ == "__main__":
-
-    print('Hello')
     parser = argparse.ArgumentParser(description="Run CutQC with given parameters")
     parser.add_argument('--circuit_size', type=int, required=True, help='Size of the circuit')
     parser.add_argument('--max_subcircuit_width', type=int, required=True, help='Max width of subcircuit')
