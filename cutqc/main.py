@@ -197,21 +197,12 @@ class CutQC:
         print("verify took %.3f" % (perf_counter() - verify_begin))
         return self.approximation_error
 
-
-    def save_cutqc_obj(self, filename: str) -> None:
+    def save_cutqc_obj (self, filename : str) -> None:
         '''
-        Saves CutQC instance as the pickle file 'FILENAME' in the 'Pickle Files' directory
+        Saves CutQC instance as the pickle file 'FILENAME'
         '''
-        directory = "pickle_files"
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        
-        filepath = os.path.join(directory, filename)
-        
-        # Save the object to the file
-        with open(filepath, 'wb') as outp:
+        with open (filename, 'wb') as outp:
             pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
-
     
     def clean_data(self):
         subprocess.run(["rm", "-r", self.tmp_data_folder])
