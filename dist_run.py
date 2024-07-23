@@ -18,7 +18,7 @@ backend = "nccl"
 import os
 
 def run():
-    filename = "adder_24_20"
+    filename = "aqft_30_10"
     full_path = "{}.pkl".format(filename) # os.path.join  (dirname, "{}.pkl".format(filename))
     print (full_path)
     

@@ -40,4 +40,5 @@ module load gurobi/10.0.1
 export PYTHONPATH=/usr/licensed/gurobi/10.0.1/linux64/lib/python3.8_utf32
 
 # Run Job
+python3 cut_and_eval.py
 srun python $script_name

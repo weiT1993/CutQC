@@ -12,9 +12,9 @@ from helper_functions.benchmarks import generate_circ
 
 
 if __name__ == "__main__":
-    circuit_type = "adder"
-    circuit_size = 24
-    max_width = 20
+    circuit_type = "aqft"
+    circuit_size = 30
+    max_width = 10
     verbose = False
     
     filename = "{}_{}_{}.pkl".format (circuit_type, circuit_size, max_width)
