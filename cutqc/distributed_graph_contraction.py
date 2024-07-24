@@ -22,9 +22,11 @@ from cutqc.post_process_helper import ComputeGraph
 __host_machine__ = 0
 
 class DistributedGraphContractor(object):
-    def __init__(self, local_rank=None) -> None: 
+    def __init__(self, local_rank=None, num_cuts=None) -> None: 
         # Starts main worker loop
         self.local_rank = local_rank
+        self.num_cuts = num_cuts
+                
         self.mp_backend = torch.device("cuda:{}".format(local_rank) if (dist.get_backend () == 'nccl') else "cpu")
         self.compute_device = torch.device("cuda:{}".format(local_rank))
         
@@ -35,17 +37,15 @@ class DistributedGraphContractor(object):
         # Used to compute
         self.compute_graph = None
         self.subcircuit_entry_probs = None
-        self.num_cuts = None
         self.reconstructed_prob = None
         
-    def reconstruct(self, compute_graph: ComputeGraph, subcircuit_entry_probs: dict, num_cuts: int) -> None:
+    def reconstruct(self, compute_graph: ComputeGraph, subcircuit_entry_probs: dict) -> None:
         '''
         Performs subcircuit reconstruction.                 
         '''
         # Set up Graph Contractor for contraction
         self.compute_graph = compute_graph
         self.subcircuit_entry_probs = subcircuit_entry_probs
-        self.num_cuts = num_cuts
         self._set_smart_order()
         self.overhead = {"additions": 0, "multiplications": 0}
         
@@ -157,10 +157,9 @@ class DistributedGraphContractor(object):
                     dist.isend(tensor_sizes_shape, dst=dst_rank) 
                     dist.isend(tensor_sizes, dst=dst_rank)
                     dist.isend(torch.tensor(batch.shape), dst=dst_rank) 
-                    dist.isend(batch,  dst=dst_rank) 
+                    dist.isend(batch.to (self.compute_device),  dst=dst_rank) 
                 
             # Receive Results 
-            
             output_buff = torch.zeros(self.result_size, dtype=torch.float32)
             dist.reduce(output_buff, dst=0, op=dist.ReduceOp.SUM)
         return torch.mul(output_buff, (1/2**self.num_cuts))
@@ -201,7 +200,7 @@ class DistributedGraphContractor(object):
             torch.set_default_device(self.mp_backend)
             
             with torch.no_grad ():
-                tensor_sizes_shape = torch.zeros([1], dtype=torch.int64)
+                tensor_sizes_shape = torch.empty([1], dtype=torch.int64)
                 dist.recv(tensor=tensor_sizes_shape, src=0)
                 # print(f"Worker {dist.get_rank()}: tensor_sizes_shape={tensor_sizes_shape}", flush=True)
                                 
@@ -212,18 +211,19 @@ class DistributedGraphContractor(object):
                     exit()
 
                 # Used to remove padding 
-                tensor_sizes = torch.zeros(tensor_sizes_shape, dtype=torch.int64)
+                tensor_sizes = torch.empty(tensor_sizes_shape, dtype=torch.int64)
                 dist.recv(tensor=tensor_sizes, src=0)
                 # print(f"Worker {dist.get_rank()}: tensor_sizes={tensor_sizes}", flush=True)
 
                 # Get shape of the batch we are receiving 
-                batch_shape = torch.zeros([3], dtype=torch.int64)
+                batch_shape = torch.empty([3], dtype=torch.int64)
                 dist.recv(tensor=batch_shape, src=0)
                 # print(f"Worker {dist.get_rank()}: batch_shape={batch_shape}", flush=True)
                             
                 # Create an empty batch tensor and receive its data
-                batch = torch.zeros(tuple(batch_shape), dtype=torch.float32)
+                batch = torch.empty(tuple(batch_shape), dtype=torch.float32)
                 dist.recv(tensor=batch, src=0)
+                # print(f"Worker {dist.get_rank()}: batch={batch}", flush=True)            
             
             return batch, tensor_sizes
 
@@ -236,7 +236,7 @@ class DistributedGraphContractor(object):
         operation back to the host. Synchronization among nodes is provided via
         barriers and blocked message passing.
         '''
-        # torch.cuda.set_device (self.device)
+        
         
         # Host will send signal to terminate worker
         while True:
@@ -244,11 +244,12 @@ class DistributedGraphContractor(object):
         
             # Execute kronecker products in parallel (vectorization)
             torch.cuda.device(self.compute_device)
-            lambda_fn = lambda x: compute_kronecker_product(x, tensor_sizes.to(self.compute_device))
+            # torch.cuda.set_device (self.device)
+            lambda_fn = lambda x: compute_kronecker_product(x, tensor_sizes)
             vec_fn = torch.func.vmap(lambda_fn)
-            res = vec_fn(batch.to(self.compute_device))
-            res = res.sum(dim=0)
-            
+            res = vec_fn(batch.to(self.compute_device))            
+            res = res.sum(dim=0)          
+                        
             # Send Back to host                
             dist.reduce(res.to(self.mp_backend), dst=__host_machine__, op=dist.ReduceOp.SUM)            
 
@@ -269,8 +270,7 @@ def compute_kronecker_product(components, tensor_sizes):
         del (component)        
         torch.cuda.empty_cache ()
         res = new
-        
-    
+            
     return res
 
 

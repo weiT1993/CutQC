@@ -60,6 +60,7 @@ class CutQC:
         self.parallel_reconstruction = parallel_reconstruction
         self.local_rank = local_rank
         
+        
     
     def _load_data(self, load_data):
         with open(load_data, 'rb') as inp:

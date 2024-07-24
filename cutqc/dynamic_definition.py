@@ -27,7 +27,7 @@ class DynamicDefinition(object):
         self.recursion_depth = recursion_depth
         self.dd_bins = {}
         self.local_rank = local_rank
-        self.graph_contractor = DistributedGraphContractor (local_rank=self.local_rank) if (parallel_reconstruction) else GraphContractor()
+        self.graph_contractor = DistributedGraphContractor (local_rank=self.local_rank, num_cuts = num_cuts) if (parallel_reconstruction) else GraphContractor()
         self.parallel_reconstruction = parallel_reconstruction
 
         self.overhead = {"additions": 0, "multiplications": 0}
@@ -72,8 +72,7 @@ class DynamicDefinition(object):
             """ Build from the merged subcircuit entries """
             reconstructed_prob = self.graph_contractor.reconstruct (
                 compute_graph=self.compute_graph,
-                subcircuit_entry_probs=merged_subcircuit_entry_probs,
-                num_cuts=self.num_cuts,
+                subcircuit_entry_probs=merged_subcircuit_entry_probs                
                 )
         
             

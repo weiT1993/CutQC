@@ -35,7 +35,7 @@ def run(args):
 
     compute_time = cutqc.build(mem_limit=32, recursion_depth=1)
     approximation_error = cutqc.verify()
-
+    approximation_error = None
     # Define the path for the output text file
     dirname = "data_measurements"
     filename = "{}_{}_nodes{}_v2".format(filename, args.backend, WORLD_SIZE)

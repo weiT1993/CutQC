@@ -48,10 +48,10 @@ if __name__ == "__main__":
         circuit=circuit,
         cutter_constraints={
             "max_subcircuit_width": max_width,
-            "max_subcircuit_cuts": 100,
+            "max_subcircuit_cuts": 10,
             "subcircuit_size_imbalance": 2,
             "max_cuts": 10,
-            "num_subcircuits": np.arange (1, 100)
+            "num_subcircuits": [2, 3, 4, 5, 6],
         },
         verbose=verbose,
     )
