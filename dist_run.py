@@ -38,7 +38,7 @@ def run(args):
 
     # Define the path for the output text file
     dirname = "data_measurements"
-    filename = "{}_{}_nodes{}".format(filename, args.backend, WORLD_SIZE)
+    filename = "{}_{}_nodes{}_v2".format(filename, args.backend, WORLD_SIZE)
     write_results (dirname, filename, (compute_time, approximation_error))    
     cutqc.destroy_distributed ()
           

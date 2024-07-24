@@ -1,0 +1,2 @@
+Compute Time: 0.5887281456962228
+TF Version

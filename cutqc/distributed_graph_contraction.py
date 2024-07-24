@@ -11,6 +11,7 @@ from typing import List
 import numpy as np
 import torch
 import torch.distributed as dist
+import time
 
 from helper_functions.metrics import MSE
 from cutqc.post_process_helper import ComputeGraph
@@ -110,7 +111,6 @@ class DistributedGraphContractor(object):
         
         # Distribute and Execute reconstruction on nodes
         num_batches = dist.get_world_size() - 1 # No batch for host
-        
         reconstructed_prob = self._send_distributed(summation_terms_sequence, num_batches)
 
         return reconstructed_prob.cpu().numpy()
@@ -120,45 +120,49 @@ class DistributedGraphContractor(object):
         Decomposes `dataset`list into 'num_batches' number of batches and distributes
         to worker processes. 
         '''
-        
-        # Batch all uncomputed product tuples into batches
-        if (len(dataset) < num_batches):
-            print ("LEN(DATASET): {}".format (len(dataset)))
-            print ("NUMBER BATCHES: {}".format (num_batches))
-            raise ValueError ("Invalid number of requested batches -- Too many nodes allocated") 
-        
-        batches = torch.stack(dataset).tensor_split(num_batches)
-        tensor_sizes_data = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64, requires_grad=False, device=self.mp_backend) # Used to strip zero padding )
-        tensor_sizes_shape = tensor_sizes_data.shape 
-        
-        print (f'batches Host: {batches}', flush=True)
-        print ("dist.get_rank () {}".format (dist.get_rank ()), flush=True)
-        # Send off to nodes for compute
-        for dst_rank, batch in enumerate(batches):
-            # Blocked send on NCCL 
-<<<<<<< Updated upstream
-            print ("sending to rankk () {}".format (dst_rank+1), flush=True)
-            dist.isend(torch.tensor(tensor_sizes_shape, dtype=torch.int64, requires_grad=False, device=self.mp_backend), dst=dst_rank+1, tag=0) 
-            print (f"Host, tensor_sizes_data type: {tensor_sizes_data.dtype}")
-            dist.isend(tensor_sizes_data, dst=dst_rank+1, tag=0)
-            dist.isend(torch.tensor(batch.shape, requires_grad=False, dtype=torch.int64, device=self.mp_backend), dst=dst_rank+1, tag=0) # Exclude Rank 0 Host 
-            dist.isend(batch.to(self.mp_backend),  dst=dst_rank+1, tag=0) 
-        
-        # Receive Results 
-        dist.barrier ()
-=======
-            dist.isend(torch.tensor(tensor_sizes_shape, dtype=torch.int64, requires_grad=False, device=self.mp_backend), dst=dst_rank+1) 
-            dist.isend(tensor_sizes_data, dst=dst_rank+1)
+        torch.set_default_device(self.mp_backend)
 
-            dist.isend(torch.tensor(batch.shape, requires_grad=False, device=self.mp_backend), dst=dst_rank+1) # Exclude Rank 0 Host 
-            dist.isend(batch.to(self.mp_backend),  dst=dst_rank+1) 
-        
-        # Receive Results 
->>>>>>> Stashed changes
-        print ("ABOUTA CALL OUTPUT", flush=True)
-        output_buff = torch.zeros(self.result_size, dtype=torch.float32, requires_grad=False).to(self.mp_backend)  
-        
-        dist.reduce(output_buff, dst=0, op=dist.ReduceOp.SUM)
+        with torch.no_grad ():        
+            # Batch all uncomputed product tuples into batches
+            if (len(dataset) < num_batches):
+                print ("LEN(DATASET): {}".format (len(dataset)))
+                print ("NUMBER BATCHES: {}".format (num_batches))
+                raise ValueError ("Invalid number of requested batches -- Too many nodes allocated") 
+            
+            batches = torch.stack(dataset).tensor_split(num_batches)
+            tensor_sizes = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64) # Used to strip zero padding 
+            tensor_sizes_shape = torch.tensor(tensor_sizes.shape, dtype=torch.int64)
+            # print (f'batches Host: {batches}', flush=True)            
+
+            # Send off to nodes for compute
+            if (dist.get_backend() == 'gloo'):
+                op_list = []
+                # List of sending objects
+                for dst, batch in enumerate(batches, start=1):
+                    # print(f"Host: Sending to dst={dst}", flush=True)
+
+                    op_list.extend([
+                        dist.P2POp(dist.isend, tensor_sizes_shape, dst),
+                        dist.P2POp(dist.isend, tensor_sizes, dst),
+                        dist.P2POp(dist.isend, torch.tensor(batch.shape, dtype=torch.int64), dst),
+                        dist.P2POp(dist.isend, batch, dst),
+                    ])
+                            
+                handles = dist.batch_isend_irecv(op_list)
+
+            else:
+                # NCCL backend
+                for dst_rank, batch in enumerate(batches, start=1):
+                    # Blocked send on NCCL 
+                    dist.isend(tensor_sizes_shape, dst=dst_rank) 
+                    dist.isend(tensor_sizes, dst=dst_rank)
+                    dist.isend(torch.tensor(batch.shape), dst=dst_rank) 
+                    dist.isend(batch,  dst=dst_rank) 
+                
+            # Receive Results 
+            
+            output_buff = torch.zeros(self.result_size, dtype=torch.float32)
+            dist.reduce(output_buff, dst=0, op=dist.ReduceOp.SUM)
         return torch.mul(output_buff, (1/2**self.num_cuts))
 
     def _get_subcircuit_entry_prob(self, subcircuit_idx: int):
@@ -190,6 +194,39 @@ class DistributedGraphContractor(object):
 
         return product_list
 
+    def _receive_from_host (self):
+            '''
+            Receives tensors sent by host. Returns batch and unpadded sizes
+            '''
+            torch.set_default_device(self.mp_backend)
+            
+            with torch.no_grad ():
+                tensor_sizes_shape = torch.zeros([1], dtype=torch.int64)
+                dist.recv(tensor=tensor_sizes_shape, src=0)
+                # print(f"Worker {dist.get_rank()}: tensor_sizes_shape={tensor_sizes_shape}", flush=True)
+                                
+                # Check for termination signal
+                if tensor_sizes_shape.item() == -1:
+                    print(f"WORKER {dist.get_rank ()} DYING", flush=True)
+                    dist.destroy_process_group()
+                    exit()
+
+                # Used to remove padding 
+                tensor_sizes = torch.zeros(tensor_sizes_shape, dtype=torch.int64)
+                dist.recv(tensor=tensor_sizes, src=0)
+                # print(f"Worker {dist.get_rank()}: tensor_sizes={tensor_sizes}", flush=True)
+
+                # Get shape of the batch we are receiving 
+                batch_shape = torch.zeros([3], dtype=torch.int64)
+                dist.recv(tensor=batch_shape, src=0)
+                # print(f"Worker {dist.get_rank()}: batch_shape={batch_shape}", flush=True)
+                            
+                # Create an empty batch tensor and receive its data
+                batch = torch.zeros(tuple(batch_shape), dtype=torch.float32)
+                dist.recv(tensor=batch, src=0)
+            
+            return batch, tensor_sizes
+
     def _initiate_worker_loop(self):
         '''
         Primary worker loop.
@@ -199,77 +236,22 @@ class DistributedGraphContractor(object):
         operation back to the host. Synchronization among nodes is provided via
         barriers and blocked message passing.
         '''
-        # torch.set_default_device(self.device)        
         # torch.cuda.set_device (self.device)
-        # Host will send signal to break from loop
+        
+        # Host will send signal to terminate worker
         while True:
-            with torch.no_grad ():
-
-                
-                # Receive Tensor list information
-                tensor_sizes_shape = torch.zeros([1], dtype=torch.int64, device=self.mp_backend)
-                print ("BACKEND {}".format(self.mp_backend), flush=True)
-<<<<<<< Updated upstream
-                dist.recv(tensor=tensor_sizes_shape, src=__host_machine__, tag=0)
-=======
-                dist.irecv(tensor=tensor_sizes_shape, src=__host_machine__).wait ()    
-                
->>>>>>> Stashed changes
-                print ("TENSORSIZES SHAPE {}".format(tensor_sizes_shape.item()), flush=True)
-                
-                # Check for termination signal
-                if tensor_sizes_shape.item() == -1:
-                    print ("DYING RIGHT NOW", flush=True)
-                    dist.destroy_process_group()
-                    exit ()
-                
-                # Used to remove padding 
-<<<<<<< Updated upstream
-                tensor_sizes = torch.zeros(tensor_sizes_shape, dtype=torch.int64, device=self.mp_backend)
-                print ("Worker calling irecv", flush=True)
-                print ("dist.get_rank () {}".format (dist.get_rank ()), flush=True)
-                print (f"worker, tensor_sizes type: {tensor_sizes.dtype}")
-                dist.recv(tensor=tensor_sizes, src=__host_machine__, tag=0)
-                dist.barrier ()
-                print ("Tensor Sizes {}".format(tensor_sizes), flush=True)
-
-                # Get shape of the batch we are receiving 
-                shape_tensor = torch.empty([3], dtype=torch.int64).to(self.mp_backend)
-                dist.recv(tensor=shape_tensor, src=__host_machine__, tag=0) 
-=======
-                tensor_sizes = torch.zeros(tuple(tensor_sizes_shape), dtype=torch.int64, device=self.mp_backend)
-                print ("Worker calling irecv", flush=True)
-                dist.irecv(tensor=tensor_sizes, src=__host_machine__).wait ()    
-                
-                print ("Tensor Sizes {}".format(tensor_sizes), flush=True)
-                exit ()
-                # Get shape of the batch we are receiving 
-                shape_tensor = torch.empty([3], dtype=torch.int64).to(self.mp_backend)
-                dist.recv(tensor=shape_tensor, src=__host_machine__) 
->>>>>>> Stashed changes
-                print ("shape-TENSORS recievesd {}".format(shape_tensor), flush=True)
-                # Create an empty batch tensor and receive its data
-                exit ()
-                batch_received = torch.empty(tuple(shape_tensor), dtype=torch.float32).to(self.mp_backend)
-                dist.recv(tensor=batch_received, src=__host_machine__)    
-<<<<<<< Updated upstream
-                
-                print ("TENSORSIZES recievesd {}".format(batch_received), flush=True, tag=0)
-=======
-                print ("TENSORSIZES recievesd {}".format(batch_received), flush=True)
->>>>>>> Stashed changes
-                # Execute kronecker products in parallel (vectorization)
-                torch.cuda.device (self.compute_device)
-                lambda_fn = lambda x: compute_kronecker_product(x, tensor_sizes.to(self.compute_device))
-                vec_fn = torch.func.vmap(lambda_fn)
-                val = batch_received.to(self.compute_device) 
-                res = vec_fn(val)
-                res = res.sum (dim=0)
-                
-                dist.barrier ()
-                # Send Back to host
-                dist.reduce(res.to(self.mp_backend), dst=__host_machine__, op=dist.ReduceOp.SUM)
+            batch, tensor_sizes = self._receive_from_host ()
+        
+            # Execute kronecker products in parallel (vectorization)
+            torch.cuda.device(self.compute_device)
+            lambda_fn = lambda x: compute_kronecker_product(x, tensor_sizes.to(self.compute_device))
+            vec_fn = torch.func.vmap(lambda_fn)
+            res = vec_fn(batch.to(self.compute_device))
+            res = res.sum(dim=0)
             
+            # Send Back to host                
+            dist.reduce(res.to(self.mp_backend), dst=__host_machine__, op=dist.ReduceOp.SUM)            
+
 
 # @torch.jit.script
 def compute_kronecker_product(components, tensor_sizes):
@@ -285,6 +267,7 @@ def compute_kronecker_product(components, tensor_sizes):
         new = torch.kron(res, component[:size])
         del (res)
         del (component)        
+        torch.cuda.empty_cache ()
         res = new
         
     
