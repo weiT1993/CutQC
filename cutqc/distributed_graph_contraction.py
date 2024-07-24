@@ -110,6 +110,7 @@ class DistributedGraphContractor(object):
         
         # Distribute and Execute reconstruction on nodes
         num_batches = dist.get_world_size() - 1 # No batch for host
+        
         reconstructed_prob = self._send_distributed(summation_terms_sequence, num_batches)
 
         return reconstructed_prob.cpu().numpy()
@@ -135,6 +136,7 @@ class DistributedGraphContractor(object):
         # Send off to nodes for compute
         for dst_rank, batch in enumerate(batches):
             # Blocked send on NCCL 
+<<<<<<< Updated upstream
             print ("sending to rankk () {}".format (dst_rank+1), flush=True)
             dist.isend(torch.tensor(tensor_sizes_shape, dtype=torch.int64, requires_grad=False, device=self.mp_backend), dst=dst_rank+1, tag=0) 
             print (f"Host, tensor_sizes_data type: {tensor_sizes_data.dtype}")
@@ -144,6 +146,15 @@ class DistributedGraphContractor(object):
         
         # Receive Results 
         dist.barrier ()
+=======
+            dist.isend(torch.tensor(tensor_sizes_shape, dtype=torch.int64, requires_grad=False, device=self.mp_backend), dst=dst_rank+1) 
+            dist.isend(tensor_sizes_data, dst=dst_rank+1)
+
+            dist.isend(torch.tensor(batch.shape, requires_grad=False, device=self.mp_backend), dst=dst_rank+1) # Exclude Rank 0 Host 
+            dist.isend(batch.to(self.mp_backend),  dst=dst_rank+1) 
+        
+        # Receive Results 
+>>>>>>> Stashed changes
         print ("ABOUTA CALL OUTPUT", flush=True)
         output_buff = torch.zeros(self.result_size, dtype=torch.float32, requires_grad=False).to(self.mp_backend)  
         
@@ -198,7 +209,12 @@ class DistributedGraphContractor(object):
                 # Receive Tensor list information
                 tensor_sizes_shape = torch.zeros([1], dtype=torch.int64, device=self.mp_backend)
                 print ("BACKEND {}".format(self.mp_backend), flush=True)
+<<<<<<< Updated upstream
                 dist.recv(tensor=tensor_sizes_shape, src=__host_machine__, tag=0)
+=======
+                dist.irecv(tensor=tensor_sizes_shape, src=__host_machine__).wait ()    
+                
+>>>>>>> Stashed changes
                 print ("TENSORSIZES SHAPE {}".format(tensor_sizes_shape.item()), flush=True)
                 
                 # Check for termination signal
@@ -208,6 +224,7 @@ class DistributedGraphContractor(object):
                     exit ()
                 
                 # Used to remove padding 
+<<<<<<< Updated upstream
                 tensor_sizes = torch.zeros(tensor_sizes_shape, dtype=torch.int64, device=self.mp_backend)
                 print ("Worker calling irecv", flush=True)
                 print ("dist.get_rank () {}".format (dist.get_rank ()), flush=True)
@@ -219,13 +236,28 @@ class DistributedGraphContractor(object):
                 # Get shape of the batch we are receiving 
                 shape_tensor = torch.empty([3], dtype=torch.int64).to(self.mp_backend)
                 dist.recv(tensor=shape_tensor, src=__host_machine__, tag=0) 
+=======
+                tensor_sizes = torch.zeros(tuple(tensor_sizes_shape), dtype=torch.int64, device=self.mp_backend)
+                print ("Worker calling irecv", flush=True)
+                dist.irecv(tensor=tensor_sizes, src=__host_machine__).wait ()    
+                
+                print ("Tensor Sizes {}".format(tensor_sizes), flush=True)
+                exit ()
+                # Get shape of the batch we are receiving 
+                shape_tensor = torch.empty([3], dtype=torch.int64).to(self.mp_backend)
+                dist.recv(tensor=shape_tensor, src=__host_machine__) 
+>>>>>>> Stashed changes
                 print ("shape-TENSORS recievesd {}".format(shape_tensor), flush=True)
                 # Create an empty batch tensor and receive its data
                 exit ()
                 batch_received = torch.empty(tuple(shape_tensor), dtype=torch.float32).to(self.mp_backend)
                 dist.recv(tensor=batch_received, src=__host_machine__)    
+<<<<<<< Updated upstream
                 
                 print ("TENSORSIZES recievesd {}".format(batch_received), flush=True, tag=0)
+=======
+                print ("TENSORSIZES recievesd {}".format(batch_received), flush=True)
+>>>>>>> Stashed changes
                 # Execute kronecker products in parallel (vectorization)
                 torch.cuda.device (self.compute_device)
                 lambda_fn = lambda x: compute_kronecker_product(x, tensor_sizes.to(self.compute_device))
