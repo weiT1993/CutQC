@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from cutqc.post_process_helper import ComputeGraph
 from time import perf_counter
+import numpy as np
+from cutqc.post_process_helper import ComputeGraph
 
 class AbstractGraphContractor(ABC):
 
@@ -22,9 +23,26 @@ class AbstractGraphContractor(ABC):
 
         return res
     
-    @abstractmethod
     def _set_smart_order(self) -> None:
-        pass
+        """
+        Sets the order in which Kronecker products are computed (greedy subcircuit order).
+        """
+        subcircuit_entry_lengths = {}
+        for subcircuit_idx in self.subcircuit_entry_probs:
+            first_entry_init_meas = list(self.subcircuit_entry_probs[subcircuit_idx].keys())[0]
+            length = len(self.subcircuit_entry_probs[subcircuit_idx][first_entry_init_meas])
+            subcircuit_entry_lengths[subcircuit_idx] = length
+
+        # Sort according to subcircuit lengths (greedy-subcircuit-order)
+        self.smart_order = sorted(
+            subcircuit_entry_lengths.keys(),
+            key=lambda subcircuit_idx: subcircuit_entry_lengths[subcircuit_idx],
+        )
+        
+        self.subcircuit_entry_lengths = [subcircuit_entry_lengths[i] for i in self.smart_order]
+        print(f"subcircuit_entry_length: {self.subcircuit_entry_lengths}", flush=True)
+        self.result_size = np.prod(self.subcircuit_entry_lengths)
+
 
     def _get_subcircuit_entry_prob(self, subcircuit_idx: int):
         """

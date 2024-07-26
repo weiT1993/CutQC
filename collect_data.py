@@ -6,7 +6,8 @@ import subprocess
 
 # Set tests here
 variable_sets = [
-    {'circuit_size': 12, 'max_subcircuit_width': 10, 'circuit_type': 'supremacy', 'backend': 'gloo'}
+    {'circuit_size': 28, 'max_subcircuit_width': 20, 'circuit_type': 'adder', 'backend': 'nccl'},
+
 ]
 
 with open('slurm/collect_data.slurm', 'r') as file:

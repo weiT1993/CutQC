@@ -46,28 +46,6 @@ class DistributedGraphContractor(AbstractGraphContractor):
         print(f"DESTROYING NOW! {self.times['compute']}", flush=True)
         dist.destroy_process_group()
 
-    def _set_smart_order(self) -> None:
-        """
-        Sets the order in which Kronecker products are computed (greedy subcircuit order).
-        """
-        subcircuit_entry_lengths = {}
-        for subcircuit_idx in self.subcircuit_entry_probs:
-            first_entry_init_meas = list(self.subcircuit_entry_probs[subcircuit_idx].keys())[0]
-            length = len(self.subcircuit_entry_probs[subcircuit_idx][first_entry_init_meas])
-            subcircuit_entry_lengths[subcircuit_idx] = length
-
-        # Sort according to subcircuit lengths (greedy-subcircuit-order)
-        self.smart_order = sorted(
-            subcircuit_entry_lengths.keys(),
-            key=lambda subcircuit_idx: subcircuit_entry_lengths[subcircuit_idx],
-        )
-        
-        self.max_effective = subcircuit_entry_lengths[self.smart_order[-1]]  # For Padding
-        self.subcircuit_entry_lengths = [subcircuit_entry_lengths[i] for i in self.smart_order]
-        print(f"subcircuit_entry_length: {self.subcircuit_entry_lengths}", flush=True)
-        self.result_size = np.prod(self.subcircuit_entry_lengths)
-
-
     def _get_paulibase_probability(self, edge_bases: tuple, edges: list):
         """
         Returns probability contribution for the basis 'edge_bases' in the circuit
@@ -118,7 +96,7 @@ class DistributedGraphContractor(AbstractGraphContractor):
             else:
                 # NCCL backend
                 for dst_rank, batch in enumerate(batches, start=1):
-                    # Blocked send on NCCL
+                    # Non-Blocking send on NCCL
                     dist.isend(tensor_sizes_shape, dst=dst_rank)
                     dist.isend(tensor_sizes, dst=dst_rank)
                     dist.isend(torch.tensor(batch.shape), dst=dst_rank)
@@ -139,8 +117,8 @@ class DistributedGraphContractor(AbstractGraphContractor):
 
         # Assemble sequence of uncomputed kronecker products
         for edge_bases in itertools.product(["I", "X", "Y", "Z"], repeat=len(edges)):
-            summation_term = self._get_paulibase_probability(edge_bases, edges)
-            summation_terms_sequence.append(summation_term)
+            summation_terms = self._get_paulibase_probability(edge_bases, edges)
+            summation_terms_sequence.append(summation_terms)
 
         self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
         

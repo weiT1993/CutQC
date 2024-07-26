@@ -1,0 +1,3 @@
+Compute Time: 0.0043764361180365086
+Approximation Error: 0.07128906250000003
+TF Version

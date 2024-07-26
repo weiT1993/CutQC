@@ -55,7 +55,7 @@ if __name__ == "__main__":
             "max_subcircuit_cuts": 10,
             "subcircuit_size_imbalance": 2,
             "max_cuts": 10,
-            "num_subcircuits": [2, 3, 4, 5, 6],
+            "num_subcircuits": [2, 3, 4, 5, 6, 8],
         },
         verbose=verbose,
     )

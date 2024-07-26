@@ -1,26 +1,19 @@
 import os
 from os.path import exists
 import argparse
-import torch.distributed as dist
-from datetime import timedelta
-from cutqc.main import CutQC 
 
-# Environment variables set by slurm script
-gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
-WORLD_RANK = int(os.environ["SLURM_PROCID"])
-WORLD_SIZE = int(os.environ["WORLD_SIZE"])
-LOCAL_RANK = WORLD_RANK - gpus_per_node * (WORLD_RANK // gpus_per_node)
-MASTER_RANK = 0
+from cutqc.main import CutQC 
+from helper_functions.benchmarks import generate_circ
 
 def write_results(dirname, filename, results):
     """
     Write results to output file
     """
-    output_file_path = os.path.join(dirname, f"{filename}.pt")
+    output_file_path = os.path.join(dirname, f"{filename}.tf")
     with open(output_file_path, 'w') as file:
         file.write(f"Compute Time: {results[0]}\n")
         file.write(f"Approximation Error: {results[1]}\n")
-        file.write(f"PT Version, {WORLD_SIZE} nodes")
+        file.write(f"TF Version")
 
 def run(args):
     # Construct filepath for target pickle
@@ -34,9 +27,9 @@ def run(args):
     cutqc = CutQC(
         build_only=True,
         load_data=full_path,
-        parallel_reconstruction=True,
-        local_rank=LOCAL_RANK,
+        parallel_reconstruction=False
     )
+
 
     # Initiate Reconstruct
     compute_time = cutqc.build(mem_limit=4, recursion_depth=10)
@@ -44,31 +37,18 @@ def run(args):
 
     # Define the path for the output text file
     dirname = "data_measurements"
-    filename = f"{filename}_{args.backend}_nodes{WORLD_SIZE}_v2"
     write_results(dirname, filename, (compute_time, approximation_error))
-    
-    cutqc.destroy_distributed()
+
           
-def init_processes(args):
-    dist.init_process_group(args.backend, rank=WORLD_RANK, world_size=WORLD_SIZE, timeout=timedelta(hours=1))
-    print(f"Hello world! This is worker: {dist.get_rank()}. I have {dist.get_world_size()} siblings!")
-    run(args)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Optional app description')
-    
     # Required positional arguments
+    parser = argparse.ArgumentParser(description='Optional app description')    
     parser.add_argument('circuit_type', type=str, nargs='?')
     parser.add_argument('circuit_size', type=int, nargs='?')
     parser.add_argument('max_width', type=int, nargs='?')
     parser.add_argument('backend', type=str, nargs='?')
-    
-    args = parser.parse_args()
-    
-    print(f"args.backend: {args.backend}")
-    print(f"Local Rank: {LOCAL_RANK}")
-    print(f"World Rank: {WORLD_RANK}")
-    print(f"World Size: {WORLD_SIZE}")
-    print(f"GPUS-Avail: {gpus_per_node}")
-    
-    init_processes(args=args)    
+    args = parser.parse_args()    
+    run(args)    
+
+
