@@ -50,6 +50,9 @@ dc:
 	python3 collect_data.py
 
 clean:
-	@rm -rf $(OUTPUT) $(PKL_DIR)
+	@rm -rf $(OUTPUT) 
+
+clean_pkl:
+	@rm -rf $(PKL_DIR)
 
 .PHONY: all clean

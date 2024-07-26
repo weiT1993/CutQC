@@ -17,7 +17,7 @@ import torch.distributed as dist
 
 class DynamicDefinition(object):
     def __init__(
-        self, compute_graph, data_folder, num_cuts, mem_limit, recursion_depth, parallel_reconstruction=False, local_rank=None,
+        self, compute_graph, data_folder, num_cuts, mem_limit, recursion_depth, parallel_reconstruction=False, local_rank=None, compute_backend='gpu'
     ) -> None:
         super().__init__()
         self.compute_graph = compute_graph
@@ -27,7 +27,7 @@ class DynamicDefinition(object):
         self.recursion_depth = recursion_depth
         self.dd_bins = {}
         self.local_rank = local_rank
-        self.graph_contractor = DistributedGraphContractor (local_rank=self.local_rank) if (parallel_reconstruction) else GraphContractor()
+        self.graph_contractor = DistributedGraphContractor (local_rank=self.local_rank, compute_backend=compute_backend) if (parallel_reconstruction) else GraphContractor()
         self.parallel_reconstruction = parallel_reconstruction
 
         self.overhead = {"additions": 0, "multiplications": 0}

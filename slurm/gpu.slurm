@@ -41,9 +41,10 @@ export PYTHONPATH=/usr/licensed/gurobi/10.0.1/linux64/lib/python3.8_utf32
 circ_type=bv
 circ_size=10
 max_width=10
-backend=gloo
+comm_backend=gloo   # Communication Framework
+compute_backend=gpu # Processing Device 
 
 # Run Job
-python3 cut_and_eval.py $circ_type $circ_size $max_width
-python3 tf_run.py $circ_type $circ_size $max_width
-# srun python $script_name $circ_type $circ_size $max_width $backend
+# python3 cut_and_eval.py $circ_type $circ_size $max_width
+# python3 tf_run.py $circ_type $circ_size $max_width
+srun python $script_name $circ_type $circ_size $max_width $comm_backend $compute_backend

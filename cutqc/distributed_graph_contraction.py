@@ -19,13 +19,22 @@ __host_machine__ = 0
 
 
 class DistributedGraphContractor(AbstractGraphContractor):
-    def __init__(self, local_rank: Optional[int] = None) -> None:
+    """
+     Distributed Graph Contractor Implementation
+    
+     Args:
+            local_rank (int): Node identifier value
+            compute_backend (str): Device used for compute (Default is GPU)
+            
+    """
+    def __init__(self, local_rank: Optional[int] = None, compute_backend: str = 'gpu') -> None:
         self.local_rank = local_rank
         
         # Set up compute devices based on backend
         self.mp_backend = torch.device(f"cuda:{local_rank}" if dist.get_backend() == 'nccl' else "cpu") # Deviced used MP
-        self.compute_device = torch.device(f"cuda:{local_rank}") 
-        
+        self.compute_device = torch.device(f"cuda:{local_rank}") if compute_backend == 'gpu' else self.mp_backend
+        print ("Worker {}, compute_device: {}".format (dist.get_rank(), self.compute_device), flush=True)
+
         if dist.get_rank() != __host_machine__:
             self._initiate_worker_loop()
         
@@ -46,7 +55,7 @@ class DistributedGraphContractor(AbstractGraphContractor):
         print(f"DESTROYING NOW! {self.times['compute']}", flush=True)
         dist.destroy_process_group()
 
-    def _get_paulibase_probability(self, edge_bases: tuple, edges: list):
+    def _get_paulibase_probability (self, edge_bases: tuple, edges: list):
         """
         Returns probability contribution for the basis 'edge_bases' in the circuit
         cutting decomposition.

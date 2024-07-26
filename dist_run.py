@@ -36,21 +36,22 @@ def run(args):
         load_data=full_path,
         parallel_reconstruction=True,
         local_rank=LOCAL_RANK,
+        compute_backend=args.compute_backend
     )
 
     # Initiate Reconstruct
-    compute_time = cutqc.build(mem_limit=4, recursion_depth=10)
+    compute_time = cutqc.build(mem_limit=32, recursion_depth=1)
     approximation_error = cutqc.verify()
 
     # Define the path for the output text file
     dirname = "data_measurements"
-    filename = f"{filename}_{args.backend}_nodes{WORLD_SIZE}_v2"
+    filename = f"{filename}_{args.comm_backend}_{args.compute_backend}_nodes{WORLD_SIZE}_v2"
     write_results(dirname, filename, (compute_time, approximation_error))
     
     cutqc.destroy_distributed()
           
 def init_processes(args):
-    dist.init_process_group(args.backend, rank=WORLD_RANK, world_size=WORLD_SIZE, timeout=timedelta(hours=1))
+    dist.init_process_group(args.comm_backend, rank=WORLD_RANK, world_size=WORLD_SIZE, timeout=timedelta(hours=1))
     print(f"Hello world! This is worker: {dist.get_rank()}. I have {dist.get_world_size()} siblings!")
     run(args)
 
@@ -61,11 +62,13 @@ if __name__ == "__main__":
     parser.add_argument('circuit_type', type=str, nargs='?')
     parser.add_argument('circuit_size', type=int, nargs='?')
     parser.add_argument('max_width', type=int, nargs='?')
-    parser.add_argument('backend', type=str, nargs='?')
-    
+    parser.add_argument('comm_backend', type=str, nargs='?')
+    parser.add_argument('compute_backend', type=str, nargs='?')
+
     args = parser.parse_args()
     
-    print(f"args.backend: {args.backend}")
+    print(f"args.compute_backend: {args.compute_backend}")
+    print(f"args.comm_backend: {args.comm_backend}")
     print(f"Local Rank: {LOCAL_RANK}")
     print(f"World Rank: {WORLD_RANK}")
     print(f"World Size: {WORLD_SIZE}")

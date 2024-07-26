@@ -21,7 +21,7 @@ class CutQC:
     """
     
     def __init__(self, name=None, circuit=None, cutter_constraints=None, verbose=False, 
-                 build_only=False, load_data=None, parallel_reconstruction=False, local_rank=None):
+                 build_only=False, load_data=None, parallel_reconstruction=False, local_rank=None, compute_backend='gpu'):
         """
         Args:
         name: name of the input quantum circuit
@@ -34,6 +34,7 @@ class CutQC:
         verbose: setting verbose to True to turn on logging information.
                  Useful to visualize what happens,
                  but may produce very long outputs for complicated circuits.
+        compute_backend (Optional): String of the processing device used in distributed mode. Default is GPU
         """
         self.name = name
         self.circuit = circuit
@@ -41,7 +42,8 @@ class CutQC:
         self.local_rank = local_rank
         self.verbose = verbose
         self.times = {}
-        
+        self.compute_backend = compute_backend
+
         self.compute_graph = None
         self.tmp_data_folder = None
         self.num_cuts = None
@@ -161,7 +163,8 @@ class CutQC:
             mem_limit=mem_limit,
             recursion_depth=recursion_depth,
             parallel_reconstruction=self.parallel_reconstruction,
-            local_rank=self.local_rank
+            local_rank=self.local_rank,
+            compute_backend=self.compute_backend
         )
         self.dd.build ()
 
