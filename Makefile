@@ -1,5 +1,6 @@
 # Directories
 OUTPUT := _output
+PKL_DIR := _pickel_files
 SLURM_DIR := slurm
 
 
@@ -45,7 +46,10 @@ all: clean
 	@echo -e $(BYellow) Job Started. Opening Output file now. $(NC)
 	@echo -e $(BBlue) Build Script Done! $(NC)
 
+dc: 
+	python3 collect_data.py
+
 clean:
-	@rm -rf $(OUTPUT)
+	@rm -rf $(OUTPUT) $(PKL_DIR)
 
 .PHONY: all clean

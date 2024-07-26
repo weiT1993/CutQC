@@ -1,19 +1,16 @@
-# Description: Driver Cuts and Evals a circuit. The result is saved as pickelfile
 import os, math
 import os, logging
-
-logging.disable(logging.WARNING)
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1" 
-
+import torch
 from cutqc.main import CutQC 
 from helper_functions.benchmarks import generate_circ
 
-filename = "cutqc_data.pkl"
+logging.disable(logging.WARNING)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
-if __name__ == "__main__":
-    circuit_type = "supremacy"
-    circuit_size = 16
+def example_func ():
+    circuit_type = "bv"
+    circuit_size = 24
+    max_width = 10
     circuit = generate_circ(
         num_qubits=circuit_size,
         depth=1,
@@ -22,17 +19,21 @@ if __name__ == "__main__":
         connected_only=True,
         seed=None,
     )
+    
     cutqc = CutQC(
         name="%s_%d" % (circuit_type, circuit_size),
         circuit=circuit,
         cutter_constraints={
-            "max_subcircuit_width": 10,
+            "max_subcircuit_width": max_width,
             "max_subcircuit_cuts": 10,
             "subcircuit_size_imbalance": 2,
             "max_cuts": 10,
-            "num_subcircuits": [2, 3],
+            "num_subcircuits": [2, 3, 4, 5, 6, 7],
         },
-        verbose=False,
+        verbose=True,
+        build_only=False,
+        load_data=None,
+        parallel_reconstruction=False
     )
     
     print ("-- Cut -- ")    
@@ -44,10 +45,13 @@ if __name__ == "__main__":
     print ("-- Evaluate --")
     cutqc.evaluate(eval_mode="sv", num_shots_fn=None)
     print ("-- Done Evaluating -- \n")
+
+    print ("-- Build --")
+    cutqc.build(mem_limit=32, recursion_depth=1)
+    print ("-- Done Building -- \n")
     
-    print ("-- Dumping CutQC Object into {} --".format (filename))
-    cutqc.save_cutqc_obj (filename)
+    cutqc.verify ()
+    print("Cut: %d recursions." % (cutqc.num_recursions))
+    cutqc.clean_data()
 
-
-
-
+example_func ()

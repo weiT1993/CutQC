@@ -33,6 +33,10 @@ if __name__ == "__main__":
     verbose = False
     
     filename = "{}_{}_{}.pkl".format (circuit_type, circuit_size, max_width)
+    dirname = '_pickel_files'
+    os.makedirs(dirname, exist_ok=True)
+    save_path = "{}/{}".format(dirname,filename)
+    
     print (f'--- Cutting and Evalualting {filename} --- ')
 
     circuit = generate_circ(
@@ -66,6 +70,6 @@ if __name__ == "__main__":
     cutqc.evaluate(eval_mode="sv", num_shots_fn=None)
     print ("-- Done Evaluating -- \n")
     
-    print ("-- Dumping CutQC Object into {} --".format (filename))
-    cutqc.save_cutqc_obj (filename)
+    print ("-- Dumping CutQC Object into {} --".format (save_path))
+    cutqc.save_cutqc_obj (save_path)
 

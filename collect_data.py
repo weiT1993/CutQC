@@ -6,7 +6,7 @@ import subprocess
 
 # Set tests here
 variable_sets = [
-    {'circuit_size': 12, 'max_subcircuit_width': 10, 'circuit_type': 'supremacy'}
+    {'circuit_size': 12, 'max_subcircuit_width': 10, 'circuit_type': 'supremacy', 'backend': 'gloo'}
 ]
 
 with open('slurm/collect_data.slurm', 'r') as file:
@@ -19,7 +19,7 @@ previous_job_id = None
 # Generate and submit SLURM scripts for each set of variables
 for i, variables in enumerate(variable_sets):
     # Construct the output file name
-    output_file = f"{variables['circuit_type']}_{variables['circuit_size']}_{variables['max_subcircuit_width']}.%j.out"
+    output_file = f"{variables['circuit_type']}_{variables['circuit_size']}_{variables['max_subcircuit_width']}_{variables['backend']}.%j.out"
     
     # Add the output directive to the SLURM script content
     slurm_script_content = slurm_template.format(**variables)

@@ -4,21 +4,23 @@ Original Author: Wei Tang (tangwei13579@gmail.com)
 Current Version Author: Charles "Chuck" Garcia (chuckgarcian@utexas.edu)
 Description: Distributed implementation of Wei Tang's original TensorFlow CutQC implementation.
 """
+
 import itertools
 from time import perf_counter
-from typing import List
+from typing import List, Optional
 import numpy as np
 import torch
 import torch.distributed as dist
-
+from cutqc.abstract_graph_contractor import AbstractGraphContractor
 from cutqc.post_process_helper import ComputeGraph
+
 
 __host_machine__ = 0
 
-class DistributedGraphContractor:
-    def __init__(self, local_rank=None, num_cuts=None) -> None:
+
+class DistributedGraphContractor(AbstractGraphContractor):
+    def __init__(self, local_rank: Optional[int] = None) -> None:
         self.local_rank = local_rank
-        self.num_cuts = num_cuts
         
         # Set up compute devices based on backend
         self.mp_backend = torch.device(f"cuda:{local_rank}" if dist.get_backend() == 'nccl' else "cpu") # Deviced used MP
@@ -31,23 +33,6 @@ class DistributedGraphContractor:
         self.compute_graph = None
         self.subcircuit_entry_probs = None
         self.reconstructed_prob = None
-
-
-    def reconstruct(self, compute_graph: ComputeGraph, subcircuit_entry_probs: dict) -> np.ndarray:
-        """
-        Performs subcircuit reconstruction.
-        """
-        self.compute_graph = compute_graph
-        self.subcircuit_entry_probs = subcircuit_entry_probs
-        self._set_smart_order()
-        self.overhead = {"additions": 0, "multiplications": 0}
-        
-        start_time = perf_counter()
-        res = self._compute()
-        end_time = perf_counter() - start_time
-        self.times['compute'] += end_time
-        
-        return res
 
 
     def terminate_distributed_process(self):
@@ -82,12 +67,6 @@ class DistributedGraphContractor:
         print(f"subcircuit_entry_length: {self.subcircuit_entry_lengths}", flush=True)
         self.result_size = np.prod(self.subcircuit_entry_lengths)
 
-    def _get_subcircuit_entry_prob(self, subcircuit_idx: int):
-        """
-        Returns The subcircuit Entry Probability for the subcircuit at index 'subcircuit_idx'
-        """
-        subcircuit_entry_init_meas = self.compute_graph.get_init_meas(subcircuit_idx)
-        return self.subcircuit_entry_probs[subcircuit_idx][subcircuit_entry_init_meas]
 
     def _get_paulibase_probability(self, edge_bases: tuple, edges: list):
         """
@@ -219,14 +198,13 @@ class DistributedGraphContractor:
             lambda_fn = lambda x: compute_kronecker_product(x, tensor_sizes)
             vec_fn = torch.func.vmap(lambda_fn)
             res = vec_fn(batch.to(self.compute_device))
-            print(f"Res on worker{dist.get_rank()}, {res}")
             res = res.sum(dim=0)
             
             # Send Back to host
             dist.reduce(res.to(self.mp_backend), dst=__host_machine__, op=dist.ReduceOp.SUM)
 
 from functools import reduce
-def compute_kronecker_product(flattened, sizes):
+def compute_kronecker_product(flattened: torch.Tensor, sizes: torch.Tensor) -> torch.Tensor:
     """
     Computes sequence of Kronecker products, where operands are tensors in 'components'.
     """
