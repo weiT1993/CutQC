@@ -33,6 +33,8 @@ class DistributedGraphContractor(AbstractGraphContractor):
         # Set up compute devices based on backend
         self.mp_backend = torch.device(f"cuda:{local_rank}" if dist.get_backend() == 'nccl' else "cpu") # Deviced used MP
         self.compute_device = torch.device(f"cuda:{local_rank}") if compute_backend == 'gpu' else self.mp_backend
+        self.is_gpu = compute_backend == 'gpu'
+        
         print ("Worker {}, compute_device: {}".format (dist.get_rank(), self.compute_device), flush=True)
 
         if dist.get_rank() != __host_machine__:
@@ -84,8 +86,10 @@ class DistributedGraphContractor(AbstractGraphContractor):
         torch.set_default_device(self.mp_backend)
 
         with torch.no_grad():
+            print ("LEN(DATASET): {}".format (len(dataset)), flush=True)
+            print ("NUMBER BATCHES: {}".format (num_batches), flush=True)
             if len(dataset) < num_batches:
-                raise ValueError("Invalid number of requested batches -- Too many nodes allocated")
+                raise ValueError("Error 2000: Invalid number of requested batches -- Too many nodes allocated, for dataset length {} and {} number of batches".format (len(dataset), num_batches))
             
             batches = torch.stack(dataset).tensor_split(num_batches)
             tensor_sizes = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64)
@@ -143,6 +147,8 @@ class DistributedGraphContractor(AbstractGraphContractor):
         Receives tensors sent by host. Returns batch and unpadded sizes.
         """
         torch.set_default_device(self.mp_backend)
+        torch.cuda.device(self.compute_device)
+        if (self.is_gpu): torch.cuda.device(self.compute_device)
         
         with torch.no_grad():
             tensor_sizes_shape = torch.empty([1], dtype=torch.int64)
@@ -165,8 +171,8 @@ class DistributedGraphContractor(AbstractGraphContractor):
             # Create an empty batch tensor and receive its data
             batch = torch.empty(tuple(batch_shape), dtype=torch.float32)
             dist.recv(tensor=batch, src=0)
-        
-        return batch, tensor_sizes
+
+        return batch_shape[0], batch, tensor_sizes
 
     def _initiate_worker_loop(self):
         """
@@ -177,18 +183,30 @@ class DistributedGraphContractor(AbstractGraphContractor):
         operation back to the host. Synchronization among nodes is provided via
         barriers and blocked message passing.
         """
-        while True:
-            batch, tensor_sizes = self._receive_from_host()
+        from pprint import pprint
         
-            # Execute kronecker products in parallel (vectorization)
+        while True:
             torch.cuda.device(self.compute_device)
+            num_batches, batch, tensor_sizes = self._receive_from_host()        
+            
+            # Ensure Enough Size
+            gpu_free = torch.cuda.mem_get_info()[0]
+            batch_mem_size = batch.element_size() * torch.prod(tensor_sizes) * num_batches 
+            assert (batch_mem_size < gpu_free), ValueError ("Error 2006: Batch of size {}, to large for GPU device of size {}".format (batch_mem_size, gpu_free))
+                                
+            # Execute kronecker products in parallel (vectorization)                    
+            torch.cuda.memory._record_memory_history()            
             lambda_fn = lambda x: compute_kronecker_product(x, tensor_sizes)
             vec_fn = torch.func.vmap(lambda_fn)
-            res = vec_fn(batch.to(self.compute_device))
+            res = vec_fn(batch)
+            torch.cuda.memory._dump_snapshot("compute_snap.pickle")        
+            
+            del (batch)
             res = res.sum(dim=0)
             
             # Send Back to host
             dist.reduce(res.to(self.mp_backend), dst=__host_machine__, op=dist.ReduceOp.SUM)
+            
 
 from functools import reduce
 def compute_kronecker_product(flattened: torch.Tensor, sizes: torch.Tensor) -> torch.Tensor:
