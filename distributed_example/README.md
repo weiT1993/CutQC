@@ -13,7 +13,6 @@ Run `cut_and_eval.py` using the corresponding Slurm script. In other words:
 
 Running the slurm script should produce an output file containing:
 
-    WORLD_SIZE=1
     --- Cut --- 
     Set parameter GURO_PAR_SPECIAL
     Set parameter TokenServer to value "license.rc.princeton.edu"
