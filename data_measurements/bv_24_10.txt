@@ -1,2 +1,0 @@
-Compute Time: 8.419089938979596
-Approximate Error: 1.9721522630525313e-31
