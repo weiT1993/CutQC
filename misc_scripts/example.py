@@ -31,7 +31,7 @@ def example_func ():
             "num_subcircuits": [2, 3, 4, 5, 6, 7],
         },
         verbose=True,
-        build_only=False,
+        reconstruct_only=False,
         load_data=None,
         parallel_reconstruction=False
     )

@@ -25,7 +25,7 @@ def run(args):
     # Load CutQC Instance from Pickle
     print(f'--- Running {full_path} ---')
     cutqc = CutQC(
-        build_only=True,
+        reconstruct_only=True,
         load_data=full_path,
         parallel_reconstruction=False
     )

@@ -3,7 +3,6 @@ OUTPUT := _output
 PKL_DIR := _pickel_files
 SLURM_DIR := slurm
 
-
 # Target Scripts
 SLURM?=gpu.slurm
 DEBUG_LEVEL?=WARN

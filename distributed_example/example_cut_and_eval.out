@@ -1,0 +1,9 @@
+MASTER_ADDR=adroit-h11n4
+MASTER_PORT=14275
+WORLD_SIZE=1
+--- Cut --- 
+Set parameter GURO_PAR_SPECIAL
+Set parameter TokenServer to value "license.rc.princeton.edu"
+--- Evaluate ---
+--- Dumping CutQC Object into adder_example.pkl ---
+Completed

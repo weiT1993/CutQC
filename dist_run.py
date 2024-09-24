@@ -1,16 +1,12 @@
 import os
 from os.path import exists
 import argparse
-import torch.distributed as dist
-from datetime import timedelta
 from cutqc.main import CutQC 
 
 # Environment variables set by slurm script
-gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
+GPUS_PER_NODE = int(os.environ["SLURM_GPUS_ON_NODE"])
 WORLD_RANK = int(os.environ["SLURM_PROCID"])
 WORLD_SIZE = int(os.environ["WORLD_SIZE"])
-LOCAL_RANK = WORLD_RANK - gpus_per_node * (WORLD_RANK // gpus_per_node)
-MASTER_RANK = 0
 
 def write_results(dirname, filename, results):
     """
@@ -27,12 +23,12 @@ def run(args):
     filename = f"{args.circuit_type}_{args.circuit_size}_{args.max_width}"
     dirname = '_pickel_files'
     full_path = f"{dirname}/{filename}.pkl"
-    assert exists(full_path), "Error 2003: Pickle File '{}' Not Found".format (full_path)
+    assert exists(full_path), "Error: Pickle File '{}' Not Found".format (full_path)
 
     # Load CutQC Instance from Pickle
     print(f'--- Running {full_path} ---')
-    cutqc = CutQC(
-        build_only=True,
+    cutqc = CutQC (
+        reconstruct_only=True,
         load_data=full_path,
         parallel_reconstruction=True,
         local_rank=LOCAL_RANK,
@@ -43,6 +39,7 @@ def run(args):
     compute_time = cutqc.build(mem_limit=32, recursion_depth=1)
     approximation_error = cutqc.verify()
 
+    print ("-- Done --s")
     # Define the path for the output text file
     dirname = "data_measurements"
     filename = f"{filename}_{args.comm_backend}_{args.compute_backend}_nodes{WORLD_SIZE}_v2"

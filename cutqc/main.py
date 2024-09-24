@@ -11,7 +11,9 @@ from cutqc.post_process_helper import (
 )
 from cutqc.dynamic_definition import DynamicDefinition, full_verify
 
+from datetime import timedelta
 import torch.distributed as dist
+
 __host_machine__ = 0
 
 class CutQC:
@@ -20,50 +22,104 @@ class CutQC:
     cut --> evaluate results --> verify (optional)
     """
     
-    def __init__(self, name=None, circuit=None, cutter_constraints=None, verbose=False, 
-                 build_only=False, load_data=None, parallel_reconstruction=False, local_rank=None, compute_backend='gpu'):
+    def __init__(self, 
+                 name=None, 
+                 circuit=None, 
+                 cutter_constraints=None, 
+                 verbose=False,              
+                 parallel_reconstruction=False, 
+                 reconstruct_only=False, 
+                 load_data=None, 
+                 compute_backend='gpu', 
+                 comm_backend = 'nccl',
+                 gpus_per_node = None,
+                 world_rank = None,
+                 world_size = None, 
+                 ):
         """
         Args:
         name: name of the input quantum circuit
         circuit: the input quantum circuit
         cutter_constraints: cutting constraints to satisfy
-        build_only: Specifies building and no cutting or evaluating should occur.
-        load_data (Optional): String of file name to load subcircuit outputs 
-                              from a previous CutQC instance. Default is None.
-        parallel_reconstruction (Optional): When set to 'True', reconstruction is executed distributed. Default is false.
+
         verbose: setting verbose to True to turn on logging information.
                  Useful to visualize what happens,
                  but may produce very long outputs for complicated circuits.
-        compute_backend (Optional): String of the processing device used in distributed mode. Default is GPU
+
+        --- Distributed Reconstruction Related Arguments ---          
+        
+        parallel_reconstruction (Optional): When set to 'True', reconstruction 
+                is executed distributed. Default FALSE
+        
+        reconstruct_only (Optional): When enabled, cutqc performs only reconstructions. 
+                          Distrubuted reconstruction requires that this be 'TRUE'.
+                          Default FALSE
+        
+        load_data (Optional): String of file name to load subcircuit outputs 
+                        from a previous CutQC instance. Default NONE.
+
+        compute_backend (Optional): Compute processing device used if 
+                                    parallel_reconstruction is set to 'TRUE'. 
+                                    'cpu' for cpu and 'gpu' for gpu. Default GPU
+
+        comm_backend (Optional): message passing backend internally used by pytorch for 
+                                 sending data between nodes. Default NCCL.
+        gpus_per_node (Optional): Number of GPUs per node in the case they are 
+                                  used as the compute backend.
+        world_rank (Optional):   Global Identifier. Default NONE.                       
+        world_size (Optional):   Total number of nodes
+        
         """
         self.name = name
         self.circuit = circuit
-        self.cutter_constraints = cutter_constraints
-        self.local_rank = local_rank
+        self.cutter_constraints = cutter_constraints        
         self.verbose = verbose
         self.times = {}
-        self.compute_backend = compute_backend
 
         self.compute_graph = None
         self.tmp_data_folder = None
         self.num_cuts = None
         self.complete_path_map = None
         self.subcircuits = None
-
-        if build_only:
-            # Only host should load in distributed mode
-            if parallel_reconstruction and dist.get_rank() == __host_machine__:
+                
+        if reconstruct_only:
+            # Multi node - Pytorch Version
+            if parallel_reconstruction:                
+                self.compute_backend = compute_backend
+                self._setup_for_dist_reconstruction (load_data, comm_backend, world_rank, world_size, gpus_per_node)
+            
+            # Single node - Tensorflow Version
+            else:
                 self._load_data(load_data)
-            if not parallel_reconstruction:
-                self._load_data(load_data)
-        elif not build_only:
+        
+        elif not reconstruct_only: 
+            # Cutting, evaluation and reconstruction are occuring all at once.
             self._initialize_for_serial_reconstruction(circuit)    
+            
+    def _setup_for_dist_reconstruction (self, load_data, comm_backend: str, world_rank: int, world_size: int, gpus_per_node: int):
+        """
+        Sets up to call the distributed kernel. Worker nodes 
         
-        self.parallel_reconstruction = parallel_reconstruction
-        self.local_rank = local_rank
+        Args:
+            comm_backend: message passing backend internally used by pytorch for 
+                        sending data between nodes
+            world_rank:   Global Identifier                       
+            world_size:   Total number of nodes
+            timeout:      Max amount of time pytorch will let any one node wait on 
+                        a message before killing it.
+        """
         
+        self.local_rank = world_rank - gpus_per_node * (world_rank // gpus_per_node)                
+        self.parallel_reconstruction = True
+        timelimit = timedelta(hours=1)  # Bounded wait time to prevent deadlock
         
-    
+        dist.init_process_group(comm_backend, rank=world_rank, world_size=world_size, timeout=timelimit)
+        
+        # Only host should load subcircuit data
+        if dist.get_rank() == __host_machine__:
+            # Todo: I think ideally the workers should on start load their own data
+            self._load_data(load_data)
+
     def _load_data(self, load_data):
         with open(load_data, 'rb') as inp:
             loaded_cutqc = pickle.load(inp)

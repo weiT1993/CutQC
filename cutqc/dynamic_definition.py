@@ -8,7 +8,7 @@ from helper_functions.conversions import quasi_to_real
 from helper_functions.metrics import MSE
 
 from cutqc.evaluator import get_num_workers
-from cutqc.graph_contraction import GraphContractor
+# from cutqc.graph_contraction import GraphContractor
 from cutqc.distributed_graph_contraction import DistributedGraphContractor
 from cutqc.helper_fun import add_times
 from cutqc.post_process_helper import get_reconstruction_qubit_order

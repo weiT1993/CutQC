@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --output=_output/%x.%j.out
+#SBATCH --output=example_dist_driver.out
 #SBATCH --nodes=1                 # node count
 #SBATCH --ntasks-per-node=2       # total number of tasks across all nodes
 #SBATCH --cpus-per-task=12        # cpu-cores per task (>1 if multi-threaded tasks)
@@ -9,10 +9,6 @@
 #SBATCH --mail-type=begin         # send email when job begins
 #SBATCH --mail-type=end           # send email when job ends
 #SBATCH --mail-type=fail          # send mail if job fails
-
-# Parse CMD Args
-script_name=$1
-debug_level=$2
 
 # Setup for Multi-node Workload
 export MASTER_PORT=$(get_free_port)  # Get a free Port
@@ -32,14 +28,4 @@ conda activate cutqc
 module load gurobi/10.0.1
 export PYTHONPATH=/usr/licensed/gurobi/10.0.1/linux64/lib/python3.8_utf32
 
-circ_type=adder
-circ_size=10
-max_width=10
-comm_backend=nccl   # Communication Framework
-compute_backend=gpu # Processing Device 
-
-# Run Job
-
-python3 cut_and_eval.py $circ_type $circ_size $max_width
-# python3 tf_run.py $circ_type $circ_size $max_width
-srun python $script_name $circ_type $circ_size $max_width $comm_backend $compute_backend
+srun python dist_driver.py
