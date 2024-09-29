@@ -21,18 +21,14 @@ Use this mode if you are just interested in the runtime performance of CutQC.
 ## Installation
 1. Make a Python virtual environment:
 ```
-conda create -n cutqc python=3.8
-conda deactivate && conda activate cutqc
+conda create cutqc python=3.12
+conda activate cutqc
 ```
-2. CutQC uses the [Gurobi](https://www.gurobi.com) solver. Install Gurobi and obtain a license.
-To install Gurobi for Python, follow the [instructions](https://www.gurobi.com/documentation/9.1/quickstart_linux/cs_python_installation_opt.html). Here we copy paste the up-to-date command as of 05/10/2021 for convenience.
-```
-conda config --add channels https://conda.anaconda.org/gurobi
-conda install gurobi
-```
+2. CutQC uses the [Gurobi](https://www.gurobi.com) solver. Obtain and install a Gurobi license.
+Follow the [instructions](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer).
 3. Install required packages:
 ```
-pip install numpy qiskit matplotlib pydot scipy tqdm pylatexenc scikit-learn tensorflow networkx
+pip install -r requirements.txt
 ```
 
 ## Example Code
@@ -49,8 +45,8 @@ If you use CutQC in your work, we would appreciate it if you cite our paper:
 
 Tang, Wei, Teague Tomesh, Martin Suchara, Jeffrey Larson, and Margaret Martonosi. "CutQC: using small quantum computers for large quantum circuit evaluations." In Proceedings of the 26th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, pp. 473-486. 2021.
 
-## Questions
-Please reach out to Wei Tang (weit@princeton.edu) for any questions and clarifications.
+## Contact Us
+Please open an issue here. Please reach out to [Wei Tang](https://www.linkedin.com/in/weitang39/).
 
 ## TODO
 - [ ] Qubit reorder function

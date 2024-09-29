@@ -62,18 +62,18 @@ class ComputeGraph(object):
         for edge in edges_to_node:
             _, v_for_edge, edge_attributes = edge
             assert v_for_edge == subcircuit_idx
-            entry_init[
-                bare_subcircuit.qubits.index(edge_attributes["rho_qubit"])
-            ] = edge_attributes["basis"]
+            entry_init[bare_subcircuit.qubits.index(edge_attributes["rho_qubit"])] = (
+                edge_attributes["basis"]
+            )
 
         entry_meas = ["comp"] * bare_subcircuit.num_qubits
         edges_from_node = self.get_edges(from_node=subcircuit_idx, to_node=None)
         for edge in edges_from_node:
             u_for_edge, _, edge_attributes = edge
             assert u_for_edge == subcircuit_idx
-            entry_meas[
-                bare_subcircuit.qubits.index(edge_attributes["O_qubit"])
-            ] = edge_attributes["basis"]
+            entry_meas[bare_subcircuit.qubits.index(edge_attributes["O_qubit"])] = (
+                edge_attributes["basis"]
+            )
         return (tuple(entry_init), tuple(entry_meas))
 
     def get_contraction_edges(
@@ -293,14 +293,14 @@ def generate_subcircuit_entries(compute_graph):
                 ) = edge
                 if subcircuit_idx == upstream_subcircuit_idx:
                     O_qubit = edge_attributes["O_qubit"]
-                    subcircuit_entry_meas[
-                        bare_subcircuit.qubits.index(O_qubit)
-                    ] = edge_basis
+                    subcircuit_entry_meas[bare_subcircuit.qubits.index(O_qubit)] = (
+                        edge_basis
+                    )
                 elif subcircuit_idx == downstream_subcircuit_idx:
                     rho_qubit = edge_attributes["rho_qubit"]
-                    subcircuit_entry_init[
-                        bare_subcircuit.qubits.index(rho_qubit)
-                    ] = edge_basis
+                    subcircuit_entry_init[bare_subcircuit.qubits.index(rho_qubit)] = (
+                        edge_basis
+                    )
                 else:
                     raise IndexError(
                         "Generating entries for a subcircuit. subcircuit_idx should be either upstream or downstream"

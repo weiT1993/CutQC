@@ -14,6 +14,7 @@ result = simulator.run(new_circuit).result()
 sv = result.get_statevector(circ)
 print(sv)
 
+
 # entanglement measure
 def sgn_star(n, i):
     if n == 2:

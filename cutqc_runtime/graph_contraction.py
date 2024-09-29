@@ -70,6 +70,7 @@ class GraphContractor(object):
                         [-1],
                     )
                     self.overhead["multiplications"] += len(summation_term)
+        
             if reconstructed_prob is None:
                 reconstructed_prob = summation_term
             else:
