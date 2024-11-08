@@ -12,12 +12,13 @@ from cutqc.evaluator import get_num_workers
 from cutqc.distributed_graph_contraction import DistributedGraphContractor
 from cutqc.helper_fun import add_times
 from cutqc.post_process_helper import get_reconstruction_qubit_order
+from cutqc.graph_contraction import GraphContractor
 
 import torch.distributed as dist
 
 class DynamicDefinition(object):
     def __init__(
-        self, compute_graph, data_folder, num_cuts, mem_limit, recursion_depth, parallel_reconstruction=False, local_rank=None, compute_backend='gpu'
+        self, compute_graph, data_folder, num_cuts, mem_limit, recursion_depth, pytorch_distributed=False, local_rank=None, compute_backend='gpu'
     ) -> None:
         super().__init__()
         self.compute_graph = compute_graph
@@ -27,8 +28,8 @@ class DynamicDefinition(object):
         self.recursion_depth = recursion_depth
         self.dd_bins = {}
         self.local_rank = local_rank
-        self.graph_contractor = DistributedGraphContractor (local_rank=self.local_rank, compute_backend=compute_backend) if (parallel_reconstruction) else GraphContractor()
-        self.parallel_reconstruction = parallel_reconstruction
+        self.graph_contractor = DistributedGraphContractor (local_rank=self.local_rank, compute_backend=compute_backend) if (pytorch_distributed) else GraphContractor()
+        self.pytorch_distributed = pytorch_distributed
 
         self.overhead = {"additions": 0, "multiplications": 0}
         self.times = {"get_dd_schedule": 0, "merge_states_into_bins": 0, "sort": 0}
@@ -117,7 +118,7 @@ class DynamicDefinition(object):
         
         # Terminate the parallized process         
         print("Compute Time: {}".format (self.graph_contractor.times["compute"]))
-        # if (self.parallel_reconstruction):
+        # if (self.pytorch_distributed):
         #     self.graph_contractor.terminate_distributed_process()
 
 

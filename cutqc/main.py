@@ -21,13 +21,13 @@ class CutQC:
     The main module for CutQC
     cut --> evaluate results --> verify (optional)
     """
-    
+
     def __init__(self, 
                  name=None, 
                  circuit=None, 
                  cutter_constraints=None, 
                  verbose=False,              
-                 parallel_reconstruction=False, 
+                 pytorch_distributed=False, 
                  reconstruct_only=False, 
                  load_data=None, 
                  compute_backend='gpu', 
@@ -48,43 +48,48 @@ class CutQC:
 
         --- Distributed Reconstruction Related Arguments ---          
         
-        parallel_reconstruction (Optional): When set to 'True', reconstruction 
+        pytorch_distributed (Optional): When set to 'True', reconstruction 
                 is executed distributed. Default FALSE
         
         reconstruct_only (Optional): When enabled, cutqc performs only reconstructions. 
-                          Distrubuted reconstruction requires that this be 'TRUE'.
+                          Executing with Pytorch requires that this be 'TRUE'.
                           Default FALSE
         
-        load_data (Optional): String of file name to load subcircuit outputs 
-                        from a previous CutQC instance. Default NONE.
+        load_data (Optional): String of file name to load subcircuits outputs 
+                        from a previous CutQC instance. Default None.
 
         compute_backend (Optional): Compute processing device used if 
-                                    parallel_reconstruction is set to 'TRUE'. 
+                                    pytorch_distributed is set to 'TRUE'. 
                                     'cpu' for cpu and 'gpu' for gpu. Default GPU
 
         comm_backend (Optional): message passing backend internally used by pytorch for 
                                  sending data between nodes. Default NCCL.
         gpus_per_node (Optional): Number of GPUs per node in the case they are 
                                   used as the compute backend.
-        world_rank (Optional):   Global Identifier. Default NONE.                       
+        world_rank (Optional):   Global Identifier. Default None.                       
         world_size (Optional):   Total number of nodes
         
         """
+        assert not (pytorch_distributed is False and reconstruct_only is True), "Using pytorch is not available for cutting, since worker nodes are being concurrently initialized."
+
         self.name = name
         self.circuit = circuit
         self.cutter_constraints = cutter_constraints        
         self.verbose = verbose
         self.times = {}
-
+        
         self.compute_graph = None
         self.tmp_data_folder = None
         self.num_cuts = None
         self.complete_path_map = None
         self.subcircuits = None
+        self.local_rank = None
+        self.compute_backend = compute_backend
+        self.pytorch_distributed = pytorch_distributed
                 
         if reconstruct_only:
             # Multi node - Pytorch Version
-            if parallel_reconstruction:                
+            if pytorch_distributed:                
                 self.compute_backend = compute_backend
                 self._setup_for_dist_reconstruction (load_data, comm_backend, world_rank, world_size, gpus_per_node)
             
@@ -93,10 +98,10 @@ class CutQC:
                 self._load_data(load_data)
         
         elif not reconstruct_only: 
-            # Cutting, evaluation and reconstruction are occuring all at once.
+            # Cutting, evaluation and reconstruction are occurring all at once.
             self._initialize_for_serial_reconstruction(circuit)    
             
-    def _setup_for_dist_reconstruction (self, load_data, comm_backend: str, world_rank: int, world_size: int, gpus_per_node: int):
+    def _setup_for_dist_reconstruction (self, load_data, comm_backend: str, world_rank: int, world_size: int, gpus_per_node: int, timeout=1):
         """
         Sets up to call the distributed kernel. Worker nodes 
         
@@ -110,12 +115,12 @@ class CutQC:
         """
         
         self.local_rank = world_rank - gpus_per_node * (world_rank // gpus_per_node)                
-        self.parallel_reconstruction = True
-        timelimit = timedelta(hours=1)  # Bounded wait time to prevent deadlock
+        self.pytorch_distributed = True
+        timelimit = timedelta(hours=timeout)  # Bounded wait time to prevent deadlock
         
-        dist.init_process_group(comm_backend, rank=world_rank, world_size=world_size, timeout=timelimit)
+        dist.init_process_group(comm_backend, rank=world_rank, world_size=world_size, timeout=timelimit) # 
         
-        # Only host should load subcircuit data
+        # Only host should load subcircuits data
         if dist.get_rank() == __host_machine__:
             # Todo: I think ideally the workers should on start load their own data
             self._load_data(load_data)
@@ -172,9 +177,10 @@ class CutQC:
         )
         for field in cut_solution:
             self.__setattr__(field, cut_solution[field])
+        
         if "complete_path_map" in cut_solution:
             self.has_solution = True
-            self._generate_metadata()
+            self._generate_metadata ()
         else:
             self.has_solution = False
         self.times["cutter"] = perf_counter() - cutter_begin
@@ -203,22 +209,16 @@ class CutQC:
         """
         if self.verbose:
             print("--> Build %s" % (self.name))
-
-        # Keep these times and discard the rest
-        # self.times = {
-        #     "cutter": self.times["cutter"],
-        #     "evaluate": self.times["evaluate"],
-        # }
-        
     
-        print ("self.parallel_reconstruction: {}".format (self.parallel_reconstruction))
+        # print ("self.pytorch_distributed': {}".format (self.pytorch_distributed))
+        
         self.dd = DynamicDefinition(
             compute_graph=self.compute_graph,
             data_folder=self.tmp_data_folder,
             num_cuts=self.num_cuts,
             mem_limit=mem_limit,
             recursion_depth=recursion_depth,
-            parallel_reconstruction=self.parallel_reconstruction,
+            pytorch_distributed=self.pytorch_distributed,
             local_rank=self.local_rank,
             compute_backend=self.compute_backend
         )

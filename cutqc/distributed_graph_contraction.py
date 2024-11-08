@@ -14,9 +14,7 @@ import torch.distributed as dist
 from cutqc.abstract_graph_contractor import AbstractGraphContractor
 from cutqc.post_process_helper import ComputeGraph
 
-
 __host_machine__ = 0
-
 
 class DistributedGraphContractor(AbstractGraphContractor):
     """
@@ -91,7 +89,7 @@ class DistributedGraphContractor(AbstractGraphContractor):
             if len(dataset) < num_batches:
                 raise ValueError("Error 2000: Invalid number of requested batches -- Too many nodes allocated, for dataset length {} and {} number of batches".format (len(dataset), num_batches))
             
-            batches = torch.stack(dataset).tensor_split(num_batches)
+            batches = torch.stack(dataset).tensor_split(num_batches) 
             tensor_sizes = torch.tensor(self.subcircuit_entry_lengths, dtype=torch.int64)
             tensor_sizes_shape = torch.tensor(tensor_sizes.shape, dtype=torch.int64)
 
