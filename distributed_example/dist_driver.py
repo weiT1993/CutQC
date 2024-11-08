@@ -34,5 +34,5 @@ if __name__ == "__main__":
 
     print('--- Reconstruction Complete ---')    
     print ("Total Reconstruction Time:\t{}".format(compute_time))
-    print ("Approxamate Error:\t {}".format (approximation_error))
+    print ("Approximate Error:\t {}".format (approximation_error))
     cutqc.destroy_distributed()    
