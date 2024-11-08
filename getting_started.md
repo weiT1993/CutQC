@@ -2,6 +2,32 @@
 
 This directory contains a simple example of subcircuit reconstruction on an adder circuit, along with a notebook that provides more details on how the environment should be set up.
 
+## Setting up the environment
+
+First we need to setup a conda environement with the following
+
+    conda create --name cutqc python=3.12
+    conda activate cutqc 
+    pip install -r requirements.txt
+conda config --add channels https://conda.anaconda.org/gurobi
+conda install gurobi
+
+pip install numpy qiskit matplotlib pydot scipy tqdm pylatexenc scikit-learn tensorflow networkx torch qiskit-aer psutil
+## Running with slurm
+
+When initializing distributed, the worker nodes must have a way to initialize communication with the host node. The following must be set in the slurm file for running the distributed reconstruction to ensure this can happen. 
+
+    # Setup for Multi-node Workload
+    export MASTER_PORT=$(get_free_port)  # Get a free Port
+    export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
+    master_addr=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1) 
+    export MASTER_ADDR=$master_addr
+
+    # Sanity Print
+    echo "MASTER_ADDR="$MASTER_ADDR
+    echo "MASTER_PORT="$MASTER_PORT
+    echo "WORLD_SIZE="$WORLD_SIZE
+
 
 ## Cutting and Evaluation 
 

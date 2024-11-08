@@ -1,10 +1,14 @@
 #!/bin/bash
-#SBATCH --output='example_cut_and_eval.out'
+#SBATCH --output=example_dist_driver.out
 #SBATCH --nodes=1                 # node count
-#SBATCH --ntasks-per-node=1       # total number of tasks across all nodes
+#SBATCH --ntasks-per-node=2       # total number of tasks across all nodes
 #SBATCH --cpus-per-task=12        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --mem=40G                 # memory per cpu-core (4G is default)
+#SBATCH --gres=gpu:4
 #SBATCH --time=00:01:55           # total run time limit (HH:MM:SS)
+#SBATCH --mail-type=begin         # send email when job begins
+#SBATCH --mail-type=end           # send email when job ends
+#SBATCH --mail-type=fail          # send mail if job fails
 
 # Setup for Multi-node Workload
 export MASTER_PORT=$(get_free_port)  # Get a free Port
@@ -20,9 +24,8 @@ echo "WORLD_SIZE="$WORLD_SIZE
 # Load Modules
 module purge
 module load anaconda3/2024.2
-conda activate cutqc
+conda activate cutqc4
 module load gurobi/10.0.1
 export PYTHONPATH=/usr/licensed/gurobi/10.0.1/linux64/lib/python3.8_utf32
 
-python3 cut_and_eval.py 
-
+srun python dist_driver.py

@@ -71,7 +71,7 @@ class CutQC:
         
         """
         assert not (pytorch_distributed is False and reconstruct_only is True), "Using pytorch is not available for cutting, since worker nodes are being concurrently initialized."
-
+        
         self.name = name
         self.circuit = circuit
         self.cutter_constraints = cutter_constraints        

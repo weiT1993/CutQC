@@ -12,19 +12,19 @@ WORLD_SIZE    = int(os.environ["WORLD_SIZE"])
 
 if __name__ == "__main__":
     full_path       = 'adder_example.pkl'
-    compute_backend = 'gpu'
+    compute_backend = 'GPU'
     comm_backend    = 'nccl'
     
     # Load CutQC Instance from Pickle
     print(f'--- Running {full_path} ---')
     cutqc = CutQC (
-        parallel_reconstruction = True,
+        pytorch_distributed = True,
         reconstruct_only = True,
         load_data        = full_path,
         compute_backend  = compute_backend,
         comm_backend     = comm_backend,
         gpus_per_node = GPUS_PER_NODE,
-        world_rank     = WORLD_RANK,
+        world_rank    = WORLD_RANK,
         world_size    = WORLD_SIZE
     )
 
