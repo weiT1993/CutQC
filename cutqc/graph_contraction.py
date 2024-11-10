@@ -2,96 +2,82 @@ import itertools, math
 from time import perf_counter
 import numpy as np
 import logging, os
-
-logging.disable(logging.WARNING)
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+from cutqc.post_process_helper import ComputeGraph
+from cutqc.abstract_graph_contractor import AbstractGraphContractor
 import tensorflow as tf
 
 
-def compute_summation_term(*argv):
-    summation_term = None
-    for subcircuit_entry_prob in argv:
-        if summation_term is None:
-            summation_term = subcircuit_entry_prob
-        else:
-            summation_term = tf.reshape(
-                tf.tensordot(summation_term, subcircuit_entry_prob, axes=0), [-1]
-            )
-    return summation_term
+logging.disable(logging.WARNING)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-class GraphContractor(object):
-    def __init__(self, compute_graph, subcircuit_entry_probs, num_cuts) -> None:
+class GraphContractor(AbstractGraphContractor):
+    def __init__(self) -> None: 
         super().__init__()
-        self.times = {}
-        self.compute_graph = compute_graph
-        self.subcircuit_entry_probs = subcircuit_entry_probs
-        self.num_cuts = num_cuts
-        self.subcircuit_entry_lengths = {}
-        for subcircuit_idx in subcircuit_entry_probs:
-            first_entry_init_meas = list(subcircuit_entry_probs[subcircuit_idx].keys())[
-                0
-            ]
-            length = len(subcircuit_entry_probs[subcircuit_idx][first_entry_init_meas])
-            self.subcircuit_entry_lengths[subcircuit_idx] = length
-        self.num_qubits = 0
-        for subcircuit_idx in compute_graph.nodes:
-            self.num_qubits += compute_graph.nodes[subcircuit_idx]["effective"]
+        self.times = {}            
+        self.reconstructed_prob = None
+        
+        # Used to compute
+        self.compute_graph = None
+        self.subcircuit_entry_probs = None
+        self.num_cuts = None
 
-        self.smart_order = sorted(
-            self.subcircuit_entry_lengths.keys(),
-            key=lambda subcircuit_idx: self.subcircuit_entry_lengths[subcircuit_idx],
-        )
-        self.overhead = {"additions": 0, "multiplications": 0}
-        self.reconstructed_prob = self.compute()
+    
+    def _get_paulibase_probability(self, edge_bases: tuple, edges: list):
+        """
+        Returns the probability contribution for the basis 'EDGE_BASES' in the circuit
+        cutting decomposition.
+        """
 
-    def compute(self):
+        summation_term = None
+        self.compute_graph.assign_bases_to_edges(edge_bases=edge_bases, edges=edges)
+
+        for subcircuit_idx in self.smart_order:
+            subcircuit_entry_prob = self._get_subcircuit_entry_prob(subcircuit_idx)
+            if summation_term is None:
+                summation_term = subcircuit_entry_prob
+            else:
+                summation_term = tf.reshape(
+                    tf.tensordot(summation_term, subcircuit_entry_prob, axes=0),
+                    [-1],
+                )
+                self.overhead["multiplications"] += len(summation_term)
+
+        return summation_term
+
+    def _compute(self):
+        '''
+        Internal function that actualy does the reconstruct
+        '''
         edges = self.compute_graph.get_edges(from_node=None, to_node=None)
 
-        make_dataset_begin = perf_counter()
-        dataset = None
+        partial_compute_begin = perf_counter()
+        reconstructed_prob = tf.zeros_like(self._get_paulibase_probability(["I"] * len(edges), edges))
+        counter = 0
+
+        # Compute Kronecker sums over the different basis
         for edge_bases in itertools.product(["I", "X", "Y", "Z"], repeat=len(edges)):
-            self.compute_graph.assign_bases_to_edges(edge_bases=edge_bases, edges=edges)
-            summation_term = []
-            cumulative_len = 1
-            for subcircuit_idx in self.smart_order:
-                subcircuit_entry_init_meas = self.compute_graph.get_init_meas(
-                    subcircuit_idx=subcircuit_idx
-                )
-                subcircuit_entry_prob = self.subcircuit_entry_probs[subcircuit_idx][
-                    subcircuit_entry_init_meas
-                ]
-                summation_term.append(subcircuit_entry_prob)
-                cumulative_len *= len(subcircuit_entry_prob)
-                self.overhead["multiplications"] += cumulative_len
-            self.overhead["multiplications"] -= len(summation_term[0])
-            dataset_elem = tf.data.Dataset.from_tensors(tuple(summation_term))
-            if dataset is None:
-                dataset = dataset_elem
-            else:
-                dataset = dataset.concatenate(dataset_elem)
+            summation_term = self._get_paulibase_probability(edge_bases, edges)
+            reconstructed_prob = tf.add(reconstructed_prob, summation_term)
+            self.overhead["additions"] += len(summation_term)
+            counter += 1
+            
         self.compute_graph.remove_bases_from_edges(edges=self.compute_graph.edges)
-        dataset = dataset.batch(
-            batch_size=1, num_parallel_calls=tf.data.AUTOTUNE, deterministic=False
-        )
-        self.times["make_dataset"] = perf_counter() - make_dataset_begin
+        partial_compute_time = perf_counter() - partial_compute_begin
 
-        compute_begin = perf_counter()
-        dataset = dataset.map(
-            compute_summation_term,
-            num_parallel_calls=tf.data.AUTOTUNE,
-            deterministic=False,
-        )
-
-        reconstructed_prob = None
-        for x in dataset:
-            if reconstructed_prob is None:
-                reconstructed_prob = x
-            else:
-                self.overhead["additions"] += len(reconstructed_prob)
-                reconstructed_prob += x
+        scale_begin = perf_counter()
         reconstructed_prob = tf.math.scalar_mul(
             1 / 2**self.num_cuts, reconstructed_prob
         ).numpy()
-        self.times["compute"] = perf_counter() - compute_begin
+        scale_time = perf_counter() - scale_begin
+
+        self.times["compute"] = (
+            partial_compute_time / counter * 4 ** len(edges) + scale_time
+        )
+        self.overhead["additions"] = int(
+            self.overhead["additions"] / counter * 4 ** len(edges)
+        )
+        self.overhead["multiplications"] = int(
+            self.overhead["multiplications"] / counter * 4 ** len(edges)
+        )
         return reconstructed_prob

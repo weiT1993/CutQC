@@ -1,4 +1,5 @@
 import subprocess, os
+import pickle
 from time import perf_counter
 
 from cutqc.helper_fun import check_valid, add_times
@@ -10,6 +11,10 @@ from cutqc.post_process_helper import (
 )
 from cutqc.dynamic_definition import DynamicDefinition, full_verify
 
+from datetime import timedelta
+import torch.distributed as dist
+
+__host_machine__ = 0
 
 class CutQC:
     """
@@ -17,27 +22,126 @@ class CutQC:
     cut --> evaluate results --> verify (optional)
     """
 
-    def __init__(self, name, circuit, cutter_constraints, verbose):
+    def __init__(self, 
+                 name=None, 
+                 circuit=None, 
+                 cutter_constraints=None, 
+                 verbose=False,              
+                 pytorch_distributed=False, 
+                 reconstruct_only=False, 
+                 load_data=None, 
+                 compute_backend='gpu', 
+                 comm_backend = 'nccl',
+                 gpus_per_node = None,
+                 world_rank = None,
+                 world_size = None, 
+                 ):
         """
         Args:
-        name : name of the input quantum circuit
-        circuit : the input quantum circuit
-        cutter_constraints : cutting constraints to satisfy
+        name: name of the input quantum circuit
+        circuit: the input quantum circuit
+        cutter_constraints: cutting constraints to satisfy
 
         verbose: setting verbose to True to turn on logging information.
-        Useful to visualize what happens,
-        but may produce very long outputs for complicated circuits.
+                 Useful to visualize what happens,
+                 but may produce very long outputs for complicated circuits.
+
+        --- Distributed Reconstruction Related Arguments ---          
+        
+        pytorch_distributed (Optional): When set to 'True', reconstruction 
+                is executed distributed. Default FALSE
+        
+        reconstruct_only (Optional): When enabled, cutqc performs only reconstructions. 
+                          Executing with Pytorch requires that this be 'TRUE'.
+                          Default FALSE
+        
+        load_data (Optional): String of file name to load subcircuits outputs 
+                        from a previous CutQC instance. Default None.
+
+        compute_backend (Optional): Compute processing device used if 
+                                    pytorch_distributed is set to 'TRUE'. 
+                                    'cpu' for cpu and 'gpu' for gpu. Default GPU
+
+        comm_backend (Optional): message passing backend internally used by pytorch for 
+                                 sending data between nodes. Default NCCL.
+        gpus_per_node (Optional): Number of GPUs per node in the case they are 
+                                  used as the compute backend.
+        world_rank (Optional):   Global Identifier. Default None.                       
+        world_size (Optional):   Total number of nodes
+        
         """
-        check_valid(circuit=circuit)
+        assert not (pytorch_distributed is False and reconstruct_only is True), "Using pytorch is not available for cutting, since worker nodes are being concurrently initialized."
+        
         self.name = name
         self.circuit = circuit
-        self.cutter_constraints = cutter_constraints
+        self.cutter_constraints = cutter_constraints        
         self.verbose = verbose
         self.times = {}
+        
+        self.compute_graph = None
+        self.tmp_data_folder = None
+        self.num_cuts = None
+        self.complete_path_map = None
+        self.subcircuits = None
+        self.local_rank = None
+        self.compute_backend = compute_backend
+        self.pytorch_distributed = pytorch_distributed
+                
+        if reconstruct_only:
+            # Multi node - Pytorch Version
+            if pytorch_distributed:                
+                self.compute_backend = compute_backend
+                self._setup_for_dist_reconstruction (load_data, comm_backend, world_rank, world_size, gpus_per_node)
+            
+            # Single node - Tensorflow Version
+            else:
+                self._load_data(load_data)
+        
+        elif not reconstruct_only: 
+            # Cutting, evaluation and reconstruction are occurring all at once.
+            self._initialize_for_serial_reconstruction(circuit)    
+            
+    def _setup_for_dist_reconstruction (self, load_data, comm_backend: str, world_rank: int, world_size: int, gpus_per_node: int, timeout=1):
+        """
+        Sets up to call the distributed kernel. Worker nodes 
+        
+        Args:
+            comm_backend: message passing backend internally used by pytorch for 
+                        sending data between nodes
+            world_rank:   Global Identifier                       
+            world_size:   Total number of nodes
+            timeout:      Max amount of time pytorch will let any one node wait on 
+                        a message before killing it.
+        """
+        
+        self.local_rank = world_rank - gpus_per_node * (world_rank // gpus_per_node)                
+        self.pytorch_distributed = True
+        timelimit = timedelta(hours=timeout)  # Bounded wait time to prevent deadlock
+        
+        dist.init_process_group(comm_backend, rank=world_rank, world_size=world_size, timeout=timelimit) # 
+        
+        # Only host should load subcircuits data
+        if dist.get_rank() == __host_machine__:
+            # Todo: I think ideally the workers should on start load their own data
+            self._load_data(load_data)
+
+    def _load_data(self, load_data):
+        with open(load_data, 'rb') as inp:
+            loaded_cutqc = pickle.load(inp)
+            self.__dict__.update(vars(loaded_cutqc))
+
+    def _initialize_for_serial_reconstruction(self, circuit):
+        check_valid(circuit=circuit)
         self.tmp_data_folder = "cutqc/tmp_data"
+        self._setup_tmp_folder()
+
+    def _setup_tmp_folder(self):
         if os.path.exists(self.tmp_data_folder):
             subprocess.run(["rm", "-r", self.tmp_data_folder])
         os.makedirs(self.tmp_data_folder)
+    
+    def destroy_distributed (self):
+        self.dd.graph_contractor.terminate_distributed_process()
 
     def cut(self):
         """
@@ -73,9 +177,10 @@ class CutQC:
         )
         for field in cut_solution:
             self.__setattr__(field, cut_solution[field])
+        
         if "complete_path_map" in cut_solution:
             self.has_solution = True
-            self._generate_metadata()
+            self._generate_metadata ()
         else:
             self.has_solution = False
         self.times["cutter"] = perf_counter() - cutter_begin
@@ -104,34 +209,41 @@ class CutQC:
         """
         if self.verbose:
             print("--> Build %s" % (self.name))
-
-        # Keep these times and discard the rest
-        self.times = {
-            "cutter": self.times["cutter"],
-            "evaluate": self.times["evaluate"],
-        }
-
-        build_begin = perf_counter()
-        dd = DynamicDefinition(
+    
+        # print ("self.pytorch_distributed': {}".format (self.pytorch_distributed))
+        
+        self.dd = DynamicDefinition(
             compute_graph=self.compute_graph,
             data_folder=self.tmp_data_folder,
             num_cuts=self.num_cuts,
             mem_limit=mem_limit,
             recursion_depth=recursion_depth,
+            pytorch_distributed=self.pytorch_distributed,
+            local_rank=self.local_rank,
+            compute_backend=self.compute_backend
         )
-        dd.build()
+        self.dd.build ()
 
-        self.times = add_times(times_a=self.times, times_b=dd.times)
-        self.approximation_bins = dd.dd_bins
+        self.times = add_times(times_a=self.times, times_b=self.dd.times)
+        self.approximation_bins = self.dd.dd_bins
         self.num_recursions = len(self.approximation_bins)
-        self.overhead = dd.overhead
-        self.times["build"] = perf_counter() - build_begin
-        self.times["build"] += self.times["cutter"]
-        self.times["build"] -= self.times["merge_states_into_bins"]
+        self.overhead = self.dd.overhead
+        # self.times["build"] = perf_counter() - build_begin
+        # self.times["build"] += self.times["cutter"]
+        # self.times["build"] -= self.times["merge_states_into_bins"]
 
         if self.verbose:
             print("Overhead = {}".format(self.overhead))
 
+        return self.dd.graph_contractor.times["compute"]
+
+    def save_eval_data (self, foldername: str) -> None:
+        '''
+        Saves subcircuit evaluation data which can be used in a future 
+        instance of `cutqc` for reconstruction.
+        '''
+        subprocess.run(["cp", "-r", self.tmp_data_folder, foldername])
+    
     def verify(self):
         verify_begin = perf_counter()
         reconstructed_prob, self.approximation_error = full_verify(
@@ -140,8 +252,18 @@ class CutQC:
             subcircuits=self.subcircuits,
             dd_bins=self.approximation_bins,
         )
+        
+        print (f"Approximate Error: {self.approximation_error}")
         print("verify took %.3f" % (perf_counter() - verify_begin))
+        return self.approximation_error
 
+    def save_cutqc_obj (self, filename : str) -> None:
+        '''
+        Saves CutQC instance as the pickle file 'FILENAME'
+        '''
+        with open (filename, 'wb') as outp:
+            pickle.dump(self, outp, pickle.HIGHEST_PROTOCOL)
+    
     def clean_data(self):
         subprocess.run(["rm", "-r", self.tmp_data_folder])
 
@@ -174,7 +296,8 @@ class CutQC:
         if os.path.exists(self.tmp_data_folder):
             subprocess.run(["rm", "-r", self.tmp_data_folder])
         os.makedirs(self.tmp_data_folder)
-        run_subcircuit_instances(
+        
+        run_subcircuit_instances (
             subcircuits=self.subcircuits,
             subcircuit_instances=self.subcircuit_instances,
             eval_mode=self.eval_mode,
