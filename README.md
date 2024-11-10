@@ -15,9 +15,6 @@ This code repo hence provides two CutQC backends:
 2. Using random number generator as the ``QPU'' backend.
 Use this mode if you are just interested in the runtime performance of CutQC.
 
-## Latest Developments
-- Added GPU support
-
 ## Installation
 1. Make a Python virtual environment:
 ```

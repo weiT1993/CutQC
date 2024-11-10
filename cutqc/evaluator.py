@@ -1,9 +1,13 @@
-import itertools, copy, pickle, subprocess, psutil, os
+import itertools, copy, pickle, subprocess, psutil, os, logging
 import numpy as np
 from qiskit.converters import circuit_to_dag, dag_to_circuit
 from qiskit.circuit.library.standard_gates import HGate, SGate, SdgGate, XGate
 
-from helper_functions.non_ibmq_functions import find_process_jobs, scrambled
+from helper_functions.non_ibmq_functions import (
+    find_process_jobs,
+    scrambled,
+    evaluate_circ,
+)
 
 
 def get_num_workers(num_jobs, ram_required_per_worker):
@@ -14,51 +18,41 @@ def get_num_workers(num_jobs, ram_required_per_worker):
     return num_workers
 
 
-def run_subcircuit_instances(
-    subcircuits, subcircuit_instances, eval_mode, num_shots_fn, data_folder
-):
+def run_subcircuit_instances(subcircuit, subcircuit_instance_init_meas, num_shots_fn):
     """
-    subcircuit_instance_probs[subcircuit_idx][(instance_init,instance_meas)] = measured probability
-
-    eval_mode:
-    sv: statevector simulation
-    qasm: noiseless qasm simulation
-    runtime: for benchmarking, pseudo QPU backend generates uniform distribution
+    subcircuit_instance_probs[(instance_init,instance_meas)] = measured probability
     """
-    instance_init_meas_ids = {}
-    for subcircuit_idx in subcircuit_instances:
-        jobs = subcircuit_instances[subcircuit_idx]
-        instance_init_meas_ids[subcircuit_idx] = {jobs[i]: i for i in range(len(jobs))}
-        jobs = scrambled(jobs)
-        pickle.dump(
-            {
-                "subcircuits": subcircuits,
-                "eval_mode": eval_mode,
-                "num_shots_fn": num_shots_fn,
-                "instance_init_meas_ids": instance_init_meas_ids,
-            },
-            open("%s/meta_info.pckl" % data_folder, "wb"),
+    subcircuit_measured_probs = {}
+    num_shots = num_shots_fn(subcircuit) if num_shots_fn is not None else None
+    num_workers = get_num_workers(
+        num_jobs=len(subcircuit_instance_init_meas),
+        ram_required_per_worker=2**subcircuit.num_qubits * 4 / 1e9,
+    )
+    for instance_init_meas in subcircuit_instance_init_meas:
+        if "Z" in instance_init_meas[1]:
+            continue
+        subcircuit_instance = modify_subcircuit_instance(
+            subcircuit=subcircuit,
+            init=instance_init_meas[0],
+            meas=instance_init_meas[1],
         )
-        num_workers = get_num_workers(
-            num_jobs=len(jobs),
-            ram_required_per_worker=2 ** subcircuits[subcircuit_idx].num_qubits
-            * 4
-            / 1e9,
-        )
-        procs = []
-        for rank in range(num_workers):
-            rank_jobs = find_process_jobs(jobs=jobs, rank=rank, num_workers=num_workers)
-            if len(rank_jobs) > 0:
-                pickle.dump(
-                    rank_jobs, open("%s/rank_%d.pckl" % (data_folder, rank), "wb")
-                )
-                python_command = (
-                    "python -m cutqc.parallel_run_subcircuits --data_folder %s --subcircuit_idx %d --rank %d"
-                    % (data_folder, subcircuit_idx, rank)
-                )
-                proc = subprocess.Popen(python_command.split(" "))
-                procs.append(proc)
-        [proc.wait() for proc in procs]
+        if num_shots is None:
+            subcircuit_inst_prob = evaluate_circ(
+                circuit=subcircuit_instance, backend="statevector_simulator"
+            )
+        else:
+            subcircuit_inst_prob = evaluate_circ(
+                circuit=subcircuit_instance,
+                backend="noiseless_qasm_simulator",
+                options={"num_shots": num_shots},
+            )
+        mutated_meas = mutate_measurement_basis(meas=instance_init_meas[1])
+        for meas in mutated_meas:
+            measured_prob = measure_prob(
+                unmeasured_prob=subcircuit_inst_prob, meas=meas
+            )
+            subcircuit_measured_probs[(instance_init_meas[0], meas)] = measured_prob
+    return subcircuit_measured_probs
 
 
 def mutate_measurement_basis(meas):
@@ -178,47 +172,29 @@ def measure_state(full_state, meas):
     return sigma, effective_state
 
 
-def attribute_shots(subcircuit_entries, subcircuits, eval_mode, data_folder):
-    meta_info = pickle.load(open("%s/meta_info.pckl" % data_folder, "rb"))
-    instance_init_meas_ids = meta_info["instance_init_meas_ids"]
-    num_workers = 20
-    entry_init_meas_ids = {}
-    for subcircuit_idx in subcircuit_entries:
-        entry_init_meas_ids[subcircuit_idx] = {}
-        i = 0
-        for key in subcircuit_entries[subcircuit_idx]:
-            entry_init_meas_ids[subcircuit_idx][key] = i
-            i += 1
-        jobs = scrambled(list(subcircuit_entries[subcircuit_idx].keys()))
-        pickle.dump(
-            {
-                "subcircuits": subcircuits,
-                "eval_mode": eval_mode,
-                "instance_init_meas_ids": instance_init_meas_ids,
-                "entry_init_meas_ids": entry_init_meas_ids,
-            },
-            open("%s/meta_info.pckl" % data_folder, "wb"),
-        )
-        num_workers = get_num_workers(
-            num_jobs=len(jobs),
-            ram_required_per_worker=2 ** subcircuits[subcircuit_idx].num_qubits
-            * 4
-            / 1e9,
-        )
-        procs = []
-        for rank in range(num_workers):
-            rank_jobs = find_process_jobs(jobs=jobs, rank=rank, num_workers=num_workers)
-            rank_jobs = {
-                key: subcircuit_entries[subcircuit_idx][key] for key in rank_jobs
-            }
-            if len(rank_jobs) > 0:
-                pickle.dump(
-                    rank_jobs, open("%s/rank_%d.pckl" % (data_folder, rank), "wb")
-                )
-                python_command = (
-                    "python -m cutqc.parallel_attribute_shots --data_folder %s --subcircuit_idx %d --rank %d"
-                    % (data_folder, subcircuit_idx, rank)
-                )
-                proc = subprocess.Popen(python_command.split(" "))
-                procs.append(proc)
-        [proc.wait() for proc in procs]
+def attribute_shots(subcircuit_measured_probs, subcircuit_entries):
+    """
+    Attribute the subcircuit_instance shots into respective subcircuit entries
+    subcircuit_entry_probs[entry_init, entry_meas] = entry_prob
+    """
+    # num_workers = get_num_workers(
+    #     num_jobs=len(jobs),
+    #     ram_required_per_worker=2 ** subcircuit.num_qubits
+    #     * 4
+    #     / 1e9,
+    # )
+    subcircuit_entry_probs = {}
+    for subcircuit_entry_init_meas in subcircuit_entries:
+        subcircuit_entry_term = subcircuit_entries[subcircuit_entry_init_meas]
+        subcircuit_entry_prob = None
+        for term in subcircuit_entry_term:
+            coefficient, subcircuit_instance_init_meas = term
+            subcircuit_instance_prob = subcircuit_measured_probs[
+                subcircuit_instance_init_meas
+            ]
+            if subcircuit_entry_prob is None:
+                subcircuit_entry_prob = coefficient * subcircuit_instance_prob
+            else:
+                subcircuit_entry_prob += coefficient * subcircuit_instance_prob
+        subcircuit_entry_probs[subcircuit_entry_init_meas] = subcircuit_entry_prob
+    return subcircuit_entry_probs

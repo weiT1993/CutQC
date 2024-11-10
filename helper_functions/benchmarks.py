@@ -13,9 +13,10 @@ def factor_int(n):
     while 1:
         co_val = int(n / val)
         if val * co_val == n:
-            return val, co_val
+            break
         else:
             val -= 1
+    return val, co_val
 
 
 def gen_secret(num_qubit):

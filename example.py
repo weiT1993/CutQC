@@ -1,17 +1,14 @@
 import os, math, logging
-
-# from cutqc_runtime.main import CutQC # Use this just to benchmark the runtime
-
-from cutqc.main import CutQC  # Use this for exact computation
-
+from cutqc.main import CutQC
 from helper_functions.benchmarks import generate_circ
 
-logging.disable(logging.WARNING)
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
-# Comment this line if using GPU
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        filename="example.log",
+        filemode="w",
+    )
     circuit_type = "supremacy"
     circuit_size = 16
     circuit = generate_circ(
@@ -23,7 +20,6 @@ if __name__ == "__main__":
         seed=None,
     )
     cutqc = CutQC(
-        name="%s_%d" % (circuit_type, circuit_size),
         circuit=circuit,
         cutter_constraints={
             "max_subcircuit_width": math.ceil(circuit.num_qubits / 4 * 3),
@@ -35,12 +31,8 @@ if __name__ == "__main__":
         verbose=True,
     )
     cutqc.cut()
-    if not cutqc.has_solution:
-        raise Exception("The input circuit and constraints have no viable cuts")
-
-    # add comment
-    cutqc.evaluate(eval_mode="sv", num_shots_fn=None)
+    cutqc.evaluate(num_shots_fn=None)
     cutqc.build(mem_limit=32, recursion_depth=1)
-    print("Cut: %d recursions." % (cutqc.num_recursions))
-    print(cutqc.approximation_bins)
-    cutqc.clean_data()
+    cutqc.verify()
+    logging.info(f"Cut: {cutqc.num_recursions} recursions.")
+    logging.info(cutqc.approximation_bins)

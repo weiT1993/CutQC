@@ -1,4 +1,4 @@
-import itertools, copy, pickle, subprocess
+import itertools, copy, pickle, subprocess, logging
 from time import perf_counter
 import numpy as np
 
@@ -7,6 +7,7 @@ from helper_functions.conversions import quasi_to_real
 from helper_functions.metrics import MSE
 
 from cutqc.evaluator import get_num_workers
+
 from cutqc.graph_contraction import GraphContractor
 from cutqc.helper_fun import add_times
 from cutqc.post_process_helper import get_reconstruction_qubit_order
@@ -14,24 +15,31 @@ from cutqc.post_process_helper import get_reconstruction_qubit_order
 
 class DynamicDefinition(object):
     def __init__(
-        self, compute_graph, data_folder, num_cuts, mem_limit, recursion_depth
+        self,
+        compute_graph,
+        num_cuts,
+        subcircuit_entry_probs,
+        mem_limit,
+        recursion_depth,
     ) -> None:
         super().__init__()
         self.compute_graph = compute_graph
-        self.data_folder = data_folder
         self.num_cuts = num_cuts
+        self.subcircuit_entry_probs = subcircuit_entry_probs
         self.mem_limit = mem_limit
         self.recursion_depth = recursion_depth
         self.dd_bins = {}
-        self.overhead = {"additions": 0, "multiplications": 0}
-
-        self.times = {"get_dd_schedule": 0, "merge_states_into_bins": 0, "sort": 0}
+        self.times = {
+            "get_dd_schedule": 0.0,
+            "merge_states_into_bins": 0.0,
+            "sort": 0.0,
+        }
 
     def build(self):
         """
-                Returns
+        Returns
 
-                dd_bins[recursion_layer] =  {'subcircuit_state','upper_bin'}
+        dd_bins[recursion_layer] =  {'subcircuit_state','upper_bin'}
         subcircuit_state[subcircuit_idx] = ['0','1','active','merged']
         """
         num_qubits = sum(
@@ -43,7 +51,7 @@ class DynamicDefinition(object):
         largest_bins = []  # [{recursion_layer, bin_id}]
         recursion_layer = 0
         while recursion_layer < self.recursion_depth:
-            # print('-'*10,'Recursion Layer %d'%(recursion_layer),'-'*10)
+            logging.info("-" * 10 + f"Recursion Layer {recursion_layer}" + "-" * 10)
             """Get qubit states"""
             get_dd_schedule_begin = perf_counter()
             if recursion_layer == 0:
@@ -56,12 +64,9 @@ class DynamicDefinition(object):
                     recursion_layer=bin_to_expand["recursion_layer"],
                     bin_id=bin_to_expand["bin_id"],
                 )
-            pickle.dump(
-                dd_schedule, open("%s/dd_schedule.pckl" % self.data_folder, "wb")
-            )
             self.times["get_dd_schedule"] += perf_counter() - get_dd_schedule_begin
 
-            merged_subcircuit_entry_probs = self.merge_states_into_bins()
+            merged_subcircuit_entry_probs = self.merge_states_into_bins(dd_schedule)
 
             """ Build from the merged subcircuit entries """
             graph_contractor = GraphContractor(
@@ -71,9 +76,6 @@ class DynamicDefinition(object):
             )
             reconstructed_prob = graph_contractor.reconstructed_prob
             smart_order = graph_contractor.smart_order
-            recursion_overhead = graph_contractor.overhead
-            self.overhead["additions"] += recursion_overhead["additions"]
-            self.overhead["multiplications"] += recursion_overhead["multiplications"]
             self.times = add_times(times_a=self.times, times_b=graph_contractor.times)
 
             self.dd_bins[recursion_layer] = dd_schedule
@@ -202,51 +204,27 @@ class DynamicDefinition(object):
         assert total_load == 0
         return loads
 
-    def merge_states_into_bins(self):
+    def merge_states_into_bins(self, dd_schedule):
         """
         The first merge of subcircuit probs using the target number of bins
         Saves the overhead of writing many states in the first SM recursion
         """
         begin = perf_counter()
-        meta_info = pickle.load(open("%s/meta_info.pckl" % (self.data_folder), "rb"))
-        num_entries = [
-            len(meta_info["entry_init_meas_ids"][subcircuit_idx])
-            for subcircuit_idx in self.compute_graph.nodes
-        ]
-        subcircuit_num_qubits = [
-            self.compute_graph.nodes[subcircuit_idx]["effective"]
-            for subcircuit_idx in self.compute_graph.nodes
-        ]
-        num_workers = get_num_workers(
-            num_jobs=max(num_entries),
-            ram_required_per_worker=2 ** max(subcircuit_num_qubits) * 4 / 1e9,
-        )
-        procs = []
-        for rank in range(num_workers):
-            python_command = (
-                "python -m cutqc.parallel_merge_probs --data_folder %s --rank %d --num_workers %d"
-                % (self.data_folder, rank, num_workers)
-            )
-            proc = subprocess.Popen(python_command.split(" "))
-            procs.append(proc)
-        [proc.wait() for proc in procs]
         merged_subcircuit_entry_probs = {}
-        for rank in range(num_workers):
-            rank_merged_subcircuit_entry_probs = pickle.load(
-                open("%s/rank_%d_merged_entries.pckl" % (self.data_folder, rank), "rb")
-            )
-            for subcircuit_idx in rank_merged_subcircuit_entry_probs:
-                if subcircuit_idx not in merged_subcircuit_entry_probs:
-                    merged_subcircuit_entry_probs[subcircuit_idx] = (
-                        rank_merged_subcircuit_entry_probs[subcircuit_idx]
-                    )
-                else:
-                    merged_subcircuit_entry_probs[subcircuit_idx].update(
-                        rank_merged_subcircuit_entry_probs[subcircuit_idx]
-                    )
-            subprocess.run(
-                ["rm", "%s/rank_%d_merged_entries.pckl" % (self.data_folder, rank)]
-            )
+        for subcircuit_idx in self.compute_graph.nodes:
+            merged_subcircuit_entry_probs[subcircuit_idx] = {}
+            for subcircuit_entry_init_meas in self.subcircuit_entry_probs[
+                subcircuit_idx
+            ]:
+                unmerged_prob_vector = self.subcircuit_entry_probs[subcircuit_idx][
+                    subcircuit_entry_init_meas
+                ]
+                merged_subcircuit_entry_probs[subcircuit_idx][
+                    subcircuit_entry_init_meas
+                ] = merge_prob_vector(
+                    unmerged_prob_vector=unmerged_prob_vector,
+                    qubit_states=dd_schedule["subcircuit_state"][subcircuit_idx],
+                )
         self.times["merge_states_into_bins"] += perf_counter() - begin
         return merged_subcircuit_entry_probs
 
@@ -332,3 +310,33 @@ def full_verify(full_circuit, complete_path_map, subcircuits, dd_bins):
         / np.linalg.norm(ground_truth) ** 2
     )
     return reconstructed_prob, approximation_error
+
+
+def merge_prob_vector(unmerged_prob_vector, qubit_states):
+    num_active = qubit_states.count("active")
+    num_merged = qubit_states.count("merged")
+    merged_prob_vector = np.zeros(2**num_active, dtype="float32")
+    # print('merging with qubit states {}. {:d}-->{:d}'.format(
+    #     qubit_states,
+    #     len(unmerged_prob_vector),len(merged_prob_vector)))
+    for active_qubit_states in itertools.product(["0", "1"], repeat=num_active):
+        if len(active_qubit_states) > 0:
+            merged_bin_id = int("".join(active_qubit_states), 2)
+        else:
+            merged_bin_id = 0
+        for merged_qubit_states in itertools.product(["0", "1"], repeat=num_merged):
+            active_ptr = 0
+            merged_ptr = 0
+            binary_state_id = ""
+            for qubit_state in qubit_states:
+                if qubit_state == "active":
+                    binary_state_id += active_qubit_states[active_ptr]
+                    active_ptr += 1
+                elif qubit_state == "merged":
+                    binary_state_id += merged_qubit_states[merged_ptr]
+                    merged_ptr += 1
+                else:
+                    binary_state_id += "%s" % qubit_state
+            state_id = int(binary_state_id, 2)
+            merged_prob_vector[merged_bin_id] += unmerged_prob_vector[state_id]
+    return merged_prob_vector

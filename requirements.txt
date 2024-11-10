@@ -10,5 +10,4 @@ tensorflow
 networkx
 gurobipy
 psutil
-black
 qiskit-aer

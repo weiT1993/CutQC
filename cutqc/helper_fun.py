@@ -10,8 +10,7 @@ def check_valid(circuit):
     """
     if circuit.num_unitary_factors() != 1:
         raise ValueError(
-            "Input circuit is not fully connected thus does not need cutting. Number of unitary factors = %d"
-            % circuit.num_unitary_factors()
+            f"Input circuit is not fully connected thus does not need cutting. Number of unitary factors = {circuit.num_unitary_factors()}"
         )
     if circuit.num_clbits > 0:
         raise ValueError("Please remove classical bits from the circuit before cutting")
