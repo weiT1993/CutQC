@@ -10,17 +10,8 @@ Therefore, using CutQC nowadays will NOT provide better performance than purely 
 However, with the rapid development of the various hardware vendors,
 CutQC is expected to achieve the advantage discussed in the paper over either quantum or classical platforms.
 
-This code repo hence provides two CutQC backends:
-1. Using classical simulators as the ``QPU'' backend.
-2. Using random number generator as the ``QPU'' backend.
-Use this mode if you are just interested in the runtime performance of CutQC.
-
 ## Installation
-1. Make a Python virtual environment:
-```
-conda create cutqc python=3.12
-conda activate cutqc
-```
+1. Make a Python 3.10 virtual environment:
 2. CutQC uses the [Gurobi](https://www.gurobi.com) solver. Obtain and install a Gurobi license.
 Follow the [instructions](https://support.gurobi.com/hc/en-us/articles/14799677517585-Getting-Started-with-Gurobi-Optimizer).
 3. Install required packages:
